@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minecraft Dictionnary — Édition Ultime</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Aller au contenu</a>
+
+  <header class="hero">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="hero-content">
+      <h1><span class="logo-cube" aria-hidden="true"></span>MINECRAFT DICTIONNARY</h1>
+      <p class="subtitle">Édition Ultime — <b id="total-count">…</b> fiches • Mobs • Armes • Blocs • Potions • Biomes • Mini-Jeu</p>
+
+      <div class="search-zone" role="search">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input id="search-input" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="Recherche intelligente : « dr » → Dragon, « pio » → Pioche…"
+                 aria-label="Recherche intelligente">
+          <button id="search-clear" class="hidden" aria-label="Effacer">✕</button>
+          <div id="search-suggestions" class="hidden" role="listbox"></div>
+        </div>
+        <div class="search-hints">
+          <span>Essaie :</span>
+          <button class="hint-chip" data-q="dr">dr → Dragon</button>
+          <button class="hint-chip" data-q="pio">pio → Pioche</button>
+          <button class="hint-chip" data-q="cr">cr → Creeper</button>
+          <button class="hint-chip" data-q="neth">neth → Nether</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav id="tabs" aria-label="Catégories">
+    <button class="tab cat-mob active" data-cat="mob">👹 Mobs <span class="count" id="count-mob"></span></button>
+    <button class="tab cat-arme" data-cat="arme">⚔️ Armes <span class="count" id="count-arme"></span></button>
+    <button class="tab cat-bloc" data-cat="bloc">🧱 Blocs <span class="count" id="count-bloc"></span></button>
+    <button class="tab cat-potion" data-cat="potion">🧪 Potions <span class="count" id="count-potion"></span></button>
+    <button class="tab cat-biome" data-cat="biome">🌍 Biomes <span class="count" id="count-biome"></span></button>
+    <button class="tab cat-jeu" data-cat="jeu">🎮 Mini-Jeu</button>
+  </nav>
+
+  <main id="main">
+    <section id="browser">
+      <p class="shown-line"><span id="shown-count">0</span> fiche(s) affichée(s)</p>
+      <div id="subfilter-bar" class="subfilter-bar" role="group" aria-label="Filtres"></div>
+      <div id="cards-grid" class="grid"></div>
+      <div id="empty-state" class="empty hidden">
+        <p class="empty-face">😢</p>
+        <p>Aucune fiche trouvée…</p>
+        <button id="reset-filters" class="mc-btn">↺ Réinitialiser</button>
+      </div>
+    </section>
+
+    <section id="game-section" class="hidden">
+      <h2>🎮 DIAMOND DASH</h2>
+      <p class="section-desc">Saute par-dessus les creepers, attrape les diamants !<br>
+        <kbd>Espace</kbd> / <kbd>↑</kbd> / clic = sauter (double saut !) • <kbd>P</kbd> = pause</p>
+      <div class="game-wrap">
+        <canvas id="game-canvas" width="480" height="300"></canvas>
+        <div id="game-over" class="game-over hidden">
+          <p class="go-title">GAME OVER</p>
+          <p id="go-score"></p>
+          <button id="game-restart" class="mc-btn">↺ Rejouer</button>
+        </div>
+      </div>
+      <div class="game-hud">
+        <span id="hud-score">💎 0</span>
+        <span id="hud-lives">❤❤❤</span>
+        <span id="hud-best">🏆 Record : 0</span>
+      </div>
+      <button id="game-start" class="mc-btn">▶ Jouer</button>
+    </section>
+  </main>
+
+  <footer>
+    <p>Fan-made • Non affilié à Mojang/Microsoft • Fait avec 💚 et des cubes</p>
+  </footer>
+
+  <div id="modal-overlay" class="hidden">
+    <div id="modal" role="dialog" aria-modal="true">
+      <button id="modal-close" aria-label="Fermer">✕</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
