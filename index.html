@@ -4,6 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Minecraft Dictionnary — Édition Ultime</title>
+  <meta name="description" content="Le dictionnaire Minecraft gratuit et complet : 157 fiches détaillées (mobs, armes, blocs, potions, biomes), recherche intelligente, favoris, mini-jeu Diamond Dash et Jarvis, l'assistant IA 100% Minecraft.">
+  <meta name="keywords" content="minecraft, dictionnaire minecraft, wiki minecraft, mobs minecraft, armes minecraft, blocs minecraft, potions minecraft, biomes minecraft, mini-jeu, creeper, warden">
+  <meta name="author" content="chartierclement69-crypto">
+  <meta name="theme-color" content="#0d0e14">
+  <link rel="canonical" href="https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Minecraft Dictionnary">
+  <meta property="og:title" content="Minecraft Dictionnary — Édition Ultime">
+  <meta property="og:description" content="157 fiches détaillées sur Minecraft : mobs, armes, blocs, potions, biomes + mini-jeu et assistant IA Jarvis. 100% gratuit.">
+  <meta property="og:url" content="https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/">
+  <meta property="og:image" content="https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Minecraft Dictionnary — Édition Ultime">
+  <meta name="twitter:description" content="157 fiches, recherche intelligente, mini-jeu et Jarvis l'assistant Minecraft. 100% gratuit.">
+  <meta name="twitter:image" content="https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/og-image.png">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%2357a63d'/%3E%3Crect x='1' y='2' width='2' height='2' fill='%230f0f12'/%3E%3Crect x='5' y='2' width='2' height='2' fill='%230f0f12'/%3E%3Crect x='2' y='5' width='4' height='2' fill='%230f0f12'/%3E%3C/svg%3E">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Minecraft Dictionnary — Édition Ultime",
+    "url": "https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/",
+    "description": "Dictionnaire Minecraft : 157 fiches (mobs, armes, blocs, potions, biomes), recherche intelligente, mini-jeu et assistant IA Jarvis.",
+    "inLanguage": "fr"
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -44,6 +70,7 @@
     <button class="tab cat-bloc" data-cat="bloc">🧱 Blocs <span class="count" id="count-bloc"></span></button>
     <button class="tab cat-potion" data-cat="potion">🧪 Potions <span class="count" id="count-potion"></span></button>
     <button class="tab cat-biome" data-cat="biome">🌍 Biomes <span class="count" id="count-biome"></span></button>
+    <button class="tab cat-fav" data-cat="fav">★ Favoris <span class="count" id="count-fav"></span></button>
     <button class="tab cat-jeu" data-cat="jeu">🎮 Mini-Jeu</button>
   </nav>
 
@@ -75,8 +102,10 @@
         <span id="hud-score">💎 0</span>
         <span id="hud-lives">❤❤❤</span>
         <span id="hud-best">🏆 Record : 0</span>
+        <button id="game-mute" class="chip" title="Activer/couper les sons">🔊</button>
       </div>
       <button id="game-start" class="mc-btn">▶ Jouer</button>
+      <button id="game-jump-mobile" class="mc-btn game-jump-mobile">⬆ SAUTER</button>
     </section>
   </main>
 
@@ -89,6 +118,26 @@
       <button id="modal-close" aria-label="Fermer">✕</button>
       <div id="modal-body"></div>
     </div>
+  </div>
+
+  <button id="jarvis-btn" aria-label="Ouvrir Jarvis, assistant Minecraft">🤖</button>
+  <div id="jarvis-panel" class="hidden" role="dialog" aria-label="Jarvis, assistant Minecraft">
+    <div class="jarvis-head">
+      <span class="jarvis-avatar">🤖</span>
+      <div><b>Jarvis</b><span class="jarvis-status">en ligne • expert Minecraft</span></div>
+      <button id="jarvis-close" aria-label="Fermer Jarvis">✕</button>
+    </div>
+    <div id="jarvis-log"></div>
+    <div class="jarvis-suggests">
+      <button class="jarvis-chip" data-q="Comment apprivoiser un loup ?">🐺 Apprivoiser un loup</button>
+      <button class="jarvis-chip" data-q="Quel est le mob le plus dangereux ?">☠️ Mob le plus dangereux</button>
+      <button class="jarvis-chip" data-q="Comment vaincre le Warden ?">👁️ Vaincre le Warden</button>
+      <button class="jarvis-chip" data-q="Où trouver des diamants ?">💎 Trouver des diamants</button>
+    </div>
+    <form id="jarvis-form">
+      <input id="jarvis-input" type="text" placeholder="Pose ta question sur Minecraft…" autocomplete="off" aria-label="Question pour Jarvis">
+      <button class="mc-btn" type="submit">Envoyer</button>
+    </form>
   </div>
 
   <div id="toast" class="hidden"></div>

@@ -373,7 +373,7 @@ MATERIAUX.forEach(([mat, c1, c2, rare], mi) => {
     const name = outil + ' en ' + mat;
     const grid = SHAPES[oi].map(r => r.replace(/Q/g, c1).replace(/q/g, c2));
     const stats = [
-      { l: 'Dégâts', v: Math.min(95, 8 + mi * 15 + oi * 3) },
+      { l: 'Dégâts', v: Math.min(95, 10 + mi * 15 + (4 - oi) * 2) },
       { l: 'Durabilité', v: Math.min(100, 10 + mi * 18) },
       { l: 'Rareté', v: Math.min(100, rare + oi) }
     ];
@@ -593,7 +593,9 @@ function renderSubs() {
 }
 
 function render() {
-  const list = DATABASE.filter(it => it.cat === state.cat)
+  const list = (state.cat === 'fav'
+    ? DATABASE.filter(it => state.favs.includes(it.id))
+    : DATABASE.filter(it => it.cat === state.cat))
     .filter(it => !state.sub || it.sub === state.sub)
     .filter(matchQuery);
   $('#cards-grid').innerHTML = list.map(cardHTML).join('');
@@ -608,6 +610,8 @@ function updateCounts() {
     if (el) el.textContent = DATABASE.filter(i => i.cat === c).length;
   });
   $('#total-count').textContent = DATABASE.length;
+  const favEl = $('#count-fav');
+  if (favEl) favEl.textContent = state.favs.length;
 }
 
 function toast(msg) {
@@ -623,7 +627,7 @@ function openModal(it) {
   const rar = rarityOf(it.rarity);
   $('#modal-body').innerHTML = `
     <div class="modal-hero cat-${it.cat}">
-      <img src="${svgFromGrid(it.pix, it.pal)}" alt="${it.name}">
+      <div class="cube-wrap">${cube3D(it, 92)}</div>
       <div>
         <h2>${it.name}</h2>
         <div class="modal-tags">
@@ -642,8 +646,12 @@ function openModal(it) {
       </div>`).join('')}</div>
     <div class="modal-chips">${it.tags.map(t => `<span class="chip">${t}</span>`).join('')}</div>`;
   $('#modal-overlay').classList.remove('hidden');
+  history.replaceState(null, '', '?fiche=' + it.id);
 }
-function closeModal() { $('#modal-overlay').classList.add('hidden'); }
+function closeModal() {
+  $('#modal-overlay').classList.add('hidden');
+  history.replaceState(null, '', location.pathname);
+}
 
 /* ---------- 5. RECHERCHE ---------- */
 function showSuggestions() {
@@ -689,6 +697,7 @@ function startGame() {
 }
 function endGame() {
   game.run = false;
+  sfx.over();
   const best = Math.max(Number(localStorage.getItem('mcd-best') || 0), Math.floor(game.score));
   localStorage.setItem('mcd-best', best);
   $('#go-score').textContent = 'Score : ' + Math.floor(game.score) + ' • 💎 ' + game.gemsN + ' diamants';
@@ -699,7 +708,7 @@ function endGame() {
 function jump() {
   if (!game || !game.run || game.paused) return;
   const p = game.p;
-  if (p.jumps < 2) { p.vy = p.jumps ? -10 : -11.5; p.jumps++; }
+  if (p.jumps < 2) { p.vy = p.jumps ? -10 : -11.5; p.jumps++; sfx.jump(); }
 }
 function togglePause() {
   if (!game || !game.run) return;
@@ -718,8 +727,9 @@ function step() {
   p.y += p.vy;
   if (p.y >= GROUND - 26) { p.y = GROUND - 26; p.vy = 0; p.jumps = 0; }
   if (g.t % Math.max(50, Math.round(110 - g.speed * 9)) === 0) g.obs.push({ x: W + 20, w: 22, h: 26 });
+  if (Math.floor(g.score) > 40 && g.t % 130 === 0) g.obs.push({ x: W + 20, y: 55 + Math.random() * 95, w: 26, h: 12, fly: true, vx: g.speed + 1.4 });
   if (g.t % 95 === 0) g.gems.push({ x: W + 20, y: GROUND - 55 - Math.random() * 95, w: 16, h: 16 });
-  g.obs.forEach(o => o.x -= g.speed);
+  g.obs.forEach(o => o.x -= (o.vx || g.speed));
   g.gems.forEach(o => o.x -= g.speed);
   g.obs = g.obs.filter(o => o.x + o.w > -10);
   g.gems = g.gems.filter(o => o.x > -10);
@@ -727,14 +737,15 @@ function step() {
   g.score += 0.1;
   const pb = { x: p.x, y: p.y, w: 22, h: 26 };
   for (const o of g.obs) {
-    if (p.inv === 0 && hit(pb, { x: o.x, y: GROUND - o.h, w: o.w, h: o.h })) {
-      g.lives--; p.inv = 90; hud();
+    const ob = o.fly ? { x: o.x, y: o.y, w: o.w, h: o.h } : { x: o.x, y: GROUND - o.h, w: o.w, h: o.h };
+    if (p.inv === 0 && hit(pb, ob)) {
+      g.lives--; p.inv = 90; hud(); sfx.hit();
       if (g.lives <= 0) { endGame(); return; }
       toast('Aïe ! Encore ' + g.lives + ' vie(s)…');
     }
   }
   g.gems = g.gems.filter(gm => {
-    if (hit(pb, gm)) { g.gemsN++; g.score += 5; hud(); return false; }
+    if (hit(pb, gm)) { g.gemsN++; g.score += 5; hud(); sfx.gem(); return false; }
     return true;
   });
 }
@@ -761,6 +772,14 @@ function draw() {
     cx.fill();
   });
   g.obs.forEach(o => {
+    if (o.fly) {
+      cx.fillStyle = '#5a5f7c';
+      cx.fillRect(o.x, o.y, o.w, o.h);
+      cx.fillStyle = '#23232b';
+      cx.fillRect(o.x - 7, o.y + (Math.floor(g.t / 6) % 2 ? -3 : 2), 8, 6);
+      cx.fillRect(o.x + o.w - 1, o.y + (Math.floor(g.t / 6) % 2 ? 2 : -3), 8, 6);
+      return;
+    }
     cx.fillStyle = '#3ecf6f';
     cx.fillRect(o.x, GROUND - o.h, o.w, o.h);
     cx.fillStyle = '#0f0f12';
@@ -867,6 +886,9 @@ function bindGrid() {
       else { state.favs.push(item.id); toast('★ ' + item.name + ' ajouté aux favoris !'); }
       localStorage.setItem('mcd-favs', JSON.stringify(state.favs));
       e.target.closest('.fav-btn').classList.toggle('on');
+      const favEl = $('#count-fav');
+      if (favEl) favEl.textContent = state.favs.length;
+      if (state.cat === 'fav') render();
       return;
     }
     openModal(item);
@@ -894,6 +916,13 @@ function bindGame() {
   $('#game-start').addEventListener('click', startGame);
   $('#game-restart').addEventListener('click', startGame);
   cv.addEventListener('mousedown', e => { e.preventDefault(); jump(); });
+  cv.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
+  $('#game-jump-mobile').addEventListener('click', jump);
+  $('#game-mute').addEventListener('click', () => {
+    muted = !muted;
+    localStorage.setItem('mcd-mute', muted ? '1' : '0');
+    $('#game-mute').textContent = muted ? '\ud83d\udd07' : '\ud83d\udd0a';
+  });
   document.addEventListener('keydown', e => {
     const jeuVisible = !$('#game-section').classList.contains('hidden');
     if (!jeuVisible) return;
@@ -911,3 +940,148 @@ bindGrid();
 bindModal();
 bindGame();
 render();
+
+/* ---------- 9. CUBE 3D ---------- */
+function cube3D(it, size = 92) {
+  const svg = svgFromGrid(it.pix, it.pal);
+  const face = (cls, filter) => `<i class="cf ${cls}" style="background-image:url('${svg}');${filter ? 'filter:' + filter : ''}"></i>`;
+  return `<div class="cube3d" style="--s:${size}px">` +
+    face('f1') + face('f2', 'brightness(.78)') + face('f3', 'brightness(1.1)') +
+    face('f4', 'brightness(.62)') + face('f5', 'brightness(.9)') + face('f6', 'brightness(.7)') +
+    `</div>`;
+}
+
+/* ---------- 10. SONS PIXEL-ART (WebAudio, zéro fichier) ---------- */
+let muted = localStorage.getItem('mcd-mute') === '1';
+let actx = null;
+function beep(freq, dur, type = 'square', vol = .15, slide = 0) {
+  if (muted) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), actx.currentTime + dur);
+    g.gain.setValueAtTime(vol, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) { /* audio indisponible */ }
+}
+const sfx = {
+  jump: () => beep(300, .12, 'square', .1, 260),
+  gem: () => { beep(880, .09, 'sine', .16); setTimeout(() => beep(1320, .12, 'sine', .13), 60); },
+  hit: () => beep(170, .25, 'sawtooth', .18, -90),
+  over: () => { beep(220, .2, 'square', .13); setTimeout(() => beep(150, .35, 'square', .13), 210); }
+};
+
+/* ---------- 11. JARVIS — ASSISTANT 100% MINECRAFT ---------- */
+const JARVIS_FAQ = [
+  { k: ['apprivoiser', 'loup', 'chien'], a: "🐺 **Le loup** s'apprivoise avec des **os** (droppés par les squelettes) : clic droit jusqu'à l'apparition de cœurs. Il porte ensuite un collier, attaque tes cibles et se téléporte vers toi. Les loups sauvages chassent naturellement les squelettes !" },
+  { k: ['portail', 'obsidienne'], a: "🌀 **Le portail du Nether** : cadre en **obsidienne** (née de l'eau sur la lave), 4 blocs de large minimum, et allume l'intérieur avec un **briquet**. Il te faut 10 blocs d'obsidienne pour le cadre standard 4×5." },
+  { k: ['warden', 'deep dark'], a: "👁️ **Le Warden** est aveugle : il chasse aux **vibrations**. Reste immobile, rampe (accroupi sur de la laine), ne jette rien ! Même en netherite il one-shot en normal : la fuite est une stratégie. Les flèches sur un carillon de sculk l'attirent ailleurs." },
+  { k: ['diamant', 'couche', 'miner'], a: "💎 **Les diamants** se trouvent entre les **couches -59 et 16** (le max étant vers -59). Mine avec une pioche en **fer minimum**, évite de creuser droit devant toi (lave !) et utilise la méthode en spirale ou les veines d'argile profonde." },
+  { k: ['elytra', 'voler'], a: "🪽 **L'elytra** se trouve dans les **vaisseaux de l'End** (ville de l'End, accessible par portail de passerelle après avoir vaincu le dragon). Répare-la avec des **membranes de phantom** ou à l'enclume avec de l'expérience. Combine-la avec des fusées de feu d'artifice pour voler !" },
+  { k: ['totem'], a: "🪬 **Le totem d'immortalité** est lâché par les **évocateurs** (manoirs de la forêt et raids). Tiens-le en **main principale ou secondaire** : si tu meurs, il te ressuscite avec 1 cœur et des effets de régénération !" },
+  { k: ['raid', 'présage', 'mauvais'], a: "⚔️ **Le raid** se déclenche en tuant un **capitaine de pillards** (bannière sur la tête) : tu obtiens « Mauvais Présage ». Entre ensuite dans un village… et défends-le ! Récompense : la **Héros du Village** (réductions des villageois)." },
+  { k: ['enchant', 'biblioth', 'mesa'], a: "📖 **La table d'enchantement** se renforce avec des **bibliothèques** : 15 autour de la table = enchantements niveau 30 max. Il te faut du **lapis-lazuli** et de l'XP. Une pêche avec canne enchantée Luck of the Sea est aussi un bon début !" },
+  { k: ['netherite', 'debris', 'ancient'], a: "🔥 **La netherite** vient des **débris anciens** (ancient debris) vers la **couche 15** du Nether. 4 débris + 4 lingots d'or = 1 lingot de netherite, à combiner avec ton équipement en diamant sur une **table de forge** (gabarit d'amélioration dans les bastions)." },
+  { k: ['dragon', 'end', 'cristal'], a: "🐲 **Le dragon de l'End** se soigne grâce aux **cristaux de l'End** au sommet des piliers d'obsidienne : détruis-les d'abord (certains sont protégés par des cages). Évite son souffle, frappe sa tête, et récupère l'**œuf de dragon** en le poussant avec un piston !" },
+  { k: ['potion', 'alambic'], a: "🧪 **L'alchimie** : un **alambic**, du **nether wart** (forteresses du Nether) + de l'eau donne une potion banale, puis ajoute l'ingrédient principal (sucre = rapidité, lactose? non : crème de magma = résistance au feu…). La poudre à canon en fait une potion jetable, la poudre de glowstone allonge la durée." },
+  { k: ['slime', 'chunk'], a: "🟢 **Les slimes** apparaissent dans les **« chunks à slime »** (environ 10 % des chunks, sous la couche 40) ou dans les **marais** la nuit. La ferme à slime classique : creuse des salles éclairées sous Y30 et attend le « boing » !" },
+  { k: ['fer', 'golem', 'ferme'], a: "⚙️ **La ferme à fer** : les golems apparaissent près des villageois qui dorment/working. Une plateforme de 44 villageois maltraités par des zombies = golems qui tombent dans la lave… Rendement : ~400 fer/heure pour une ferme simple !" },
+  { k: ['villageois', 'zombie', 'rabais'], a: "💊 **Le zombie villageois** se guérit : **potion de faiblesse** (jetée) + **pomme dorée**. Après 3-5 minutes, il redevient villageois avec des **réductions permanentes** sur ses échanges. La base de tout commerce d'émeraudes rentable !" },
+  { k: ['record', 'score', 'jeu', 'jouer', 'diamond dash'], a: "🎮 **Diamond Dash** : Espace/↑/clic = sauter (double saut possible !), P = pause. Chaque diamant 💎 = 5 points, le temps fait monter le score. Après 40 points, attention aux **phantoms** qui volent ! Ton record est sauvegardé localement." },
+  { k: ['fiche', 'dictionnaire', 'site', 'comment', 'marche', 'favoris'], a: "🔎 **Le site** : 157 fiches réparties en 5 onglets (Mobs, Armes, Blocs, Potions, Biomes) + l'onglet ★ Favoris. Tape dans la recherche intelligente (essaie « dr » → Dragon), clique sur une carte pour la fiche complète, et ★ pour mettre en favori. Chaque fiche a son cube 3D dans le détail !" },
+  { k: ['bonjour', 'salut', 'coucou', 'hello', 'qui es'], a: "🤖 Salut, je suis **Jarvis**, l'assistant du Minecraft Dictionnary ! Je réponds uniquement aux questions sur Minecraft : les 157 fiches du site, le craft, les mobs, le Nether, l'End… Pose ta question ou clique sur une suggestion !" }
+];
+function jarvisAnswer(raw) {
+  const q = norm(raw);
+  if (!q) return "Pose-moi une question sur Minecraft ! 💎";
+  if (/^(bonjour|salut|coucou|hello|hey|yo|qui es|tu es qui)/.test(q)) return JARVIS_FAQ[JARVIS_FAQ.length - 1].a;
+  const found = DATABASE
+    .filter(it => q.includes(norm(it.name)))
+    .sort((a, b) => b.name.length - a.name.length);
+  if (found.length) {
+    const it = found[0];
+    const rar = rarityOf(it.rarity);
+    const statsTxt = it.stats.map(s => `${s.l} ${s.v}/100`).join(' • ');
+    return `**${it.name}** (${it.cat} ${it.sub}, rareté : ${rar})\n\n${it.desc}\n\n📊 ${statsTxt}\n🏷️ ${it.tags.join(', ')}`;
+  }
+  const compar = /(le )?(plus|meilleure?)\b/.test(q);
+  if (compar && /(dangereux|fort|puissant|dur|difficile|boss)/.test(q)) {
+    const top = DATABASE.filter(i => i.cat === 'mob').sort((a, b) => b.stats[0].v - a.stats[0].v).slice(0, 3);
+    return "☠️ Les **3 mobs les plus dangereux** du dictionnaire :\n\n" +
+      top.map((m, i) => `${i + 1}. **${m.name}** — Danger ${m.stats[0].v}/100`).join('\n') +
+      "\n\nTous les trois valent 100 : dragon, Wither et Warden… bonne chance !";
+  }
+  if (compar && /(arme|outil|epee|pioche|hache|epée)/.test(q)) {
+    const top = DATABASE.filter(i => i.cat === 'arme').sort((a, b) => b.stats[0].v - a.stats[0].v).slice(0, 3);
+    return "⚔️ Le **top des armes** (dégâts) :\n\n" +
+      top.map((m, i) => `${i + 1}. **${m.name}** — Dégâts ${m.stats[0].v}/100`).join('\n');
+  }
+  for (const entry of JARVIS_FAQ) {
+    if (entry.k.some(k => q.includes(k))) return entry.a;
+  }
+  if (/(minecraft|mob|bloc|potion|biome|arme|outil|craft|miner|nether|end|overworld|redstone|cuir|laine|fer|or|diamant|zombie|creeper| XP |esp|biome| porte |manger|nourriture|maison|base)/.test(' ' + q + ' ')) {
+    return "Bonne question ! 🤔 Je connais parfaitement les **157 fiches** du dictionnaire : mobs, armes, blocs, potions et biomes. Reformule avec un nom précis (ex. « Creeper », « Nether », « potion de soin ») ou demande « quel est le mob le plus dangereux ? »";
+  }
+  return "🚫 Désolé, je suis **100 % Minecraft** ! Je ne réponds qu'aux questions sur le jeu : mobs, armes, blocs, potions, biomes, craft… Essaie « comment apprivoiser un loup ? » ou « où trouver des diamants ? » 💎";
+}
+function jarvisAdd(role, text) {
+  const log = $('#jarvis-log');
+  const d = document.createElement('div');
+  d.className = 'jmsg ' + role;
+  if (role === 'bot') d.innerHTML = text; else d.textContent = text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+  return d;
+}
+function jarvisAsk(raw) {
+  jarvisAdd('user', raw);
+  const typing = jarvisAdd('bot typing', '…');
+  typing.textContent = '🤖 réfléchit…';
+  setTimeout(() => {
+    typing.classList.remove('typing');
+    typing.innerHTML = jarvisAnswer(raw);
+    const log = $('#jarvis-log');
+    log.scrollTop = log.scrollHeight;
+  }, 450);
+}
+function bindJarvis() {
+  $('#jarvis-btn').addEventListener('click', () => {
+    const panel = $('#jarvis-panel');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+      if (!$('#jarvis-log').children.length) {
+        jarvisAdd('bot', "🤖 Bonjour ! Je suis <b>Jarvis</b>, l'assistant officiel du Minecraft Dictionnary.\n\nJe réponds <b>uniquement</b> aux questions sur Minecraft : les 157 fiches du site, le craft, les mobs, le Nether, l'End…\n\nQue veux-tu savoir ? 💎");
+      }
+      $('#jarvis-input').focus();
+    }
+  });
+  $('#jarvis-close').addEventListener('click', () => $('#jarvis-panel').classList.add('hidden'));
+  $('#jarvis-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const input = $('#jarvis-input');
+    const v = input.value.trim();
+    if (!v) return;
+    input.value = '';
+    jarvisAsk(v);
+  });
+  document.querySelectorAll('.jarvis-chip').forEach(chip => chip.addEventListener('click', () => {
+    if ($('#jarvis-panel').classList.contains('hidden')) $('#jarvis-btn').click();
+    jarvisAsk(chip.dataset.q);
+  }));
+}
+
+/* ---------- 12. INIT BONUS ---------- */
+bindJarvis();
+$('#game-mute').textContent = muted ? '🔇' : '🔊';
+{
+  const ficheParam = new URLSearchParams(location.search).get('fiche');
+  if (ficheParam) {
+    const it = DATABASE.find(i => i.id === ficheParam);
+    if (it) { openModal(it); toast('Fiche partagée : ' + it.name); }
+  }
+}
