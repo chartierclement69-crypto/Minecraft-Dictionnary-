@@ -1,1087 +1,491 @@
-/* =====================================================
-   MINECRAFT DICTIONNARY — ÉDITION ULTIME v2
-   Mobs • Armes (bois→netherite) • Blocs + variantes • Potions • Biomes
-   Pixel-art SVG • Recherche floue • Mini-jeu 2D
-   ===================================================== */
+/* ============ MINECRAFT DICTIONNARY ULTRA v2 — MOTEUR ============ */
+"use strict";
 
-/* ---------- 1. MOTEUR PIXEL-ART ---------- */
-const PAL = {
-  '.': null,
-  k: '#0f0f12', w: '#f5f5f5', m: '#d8d8e0', s: '#9aa0a6', S: '#5f6368',
-  g: '#57a63d', G: '#2f6b22', t: '#3ecf6f', e: '#4ee36a', E: '#2aa24a',
-  b: '#8a5a2b', B: '#5c3a1a', u: '#7a4b22',
-  r: '#d63c2f', R: '#8f1f16', o: '#e2762a', x: '#c96a1e',
-  y: '#f2c12e', f: '#ff9d3c',
-  c: '#35d9d9', C: '#1b8f8f', i: '#bfe8ff', I: '#7db8e8',
-  p: '#a45de5', P: '#6b2fa8', n: '#3a3a44', N: '#23232b',
-  h: '#f7d7a8', F: '#f2a0b5', D: '#c9758c',
-  a: '#e7d8a8', A: '#c9b478', M: '#9b8bb0'
+/* ---------- Génération des fiches outils / armures / armures ---------- */
+const OUTIL_NAMES = { "Épée":"sword","Pioche":"pickaxe","Hache":"axe","Pelle":"shovel","Houe":"hoe" };
+const ARMES = []; // fiches outils/épées
+TIERS.forEach(t => OUTILS.forEach(o => {
+  ARMES.push({ n:`${o.n} en ${t.n}`, t:"outil", i:o.i, hp:o.dmg(t), d:o.dmg(t), dur:t.dur,
+    b:`${t.ing} (table de craft)`, s:o.desc, tier:t.n, speed:t.speed });
+}));
+const ARMURES = []; // fiches armures
+ARMURES_T.forEach(m => PIECES.forEach((p,idx) => {
+  ARMURES.push({ n:`${p} en ${m.n}`, t:"armure", i:PIECES_I[idx], hp:m.pts[idx], d:m.pts[idx],
+    dur:m.dur[idx], b:`${m.ing} (table de craft)`, s:`${m.pts[idx]} point${m.pts[idx]>1?"s":""} d'armure. Enchantabilité ${m.ench}.`,
+    tier:m.n, col:m.c });
+}));
+const TOUTES_ARMES = [...ARMES, ...ARMURES, ...ARMES_SPECIALES.map(a=>({...a,t:"spéciale"}))];
+
+/* Recettes générées : outils */
+const PATTERNS_OUTIL = {
+ "Épée":["MM","B"],"Pioche":["MMM"," B "," B "],"Haxe":["MM","MB"," B"],"Pelle":["M","B","B"],"Houe":["MM"," B"," B"]
 };
-
-function svgFromGrid(grid, extraPal) {
-  const pal = extraPal ? { ...PAL, ...extraPal } : PAL;
-  let rects = '';
-  grid.forEach((row, y) => {
-    [...row].forEach((ch, x) => {
-      const col = pal[ch];
-      if (col) rects += `<rect x="${x}" y="${y}" width="1.03" height="1.03" fill="${col}"/>`;
-    });
-  });
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8" shape-rendering="crispEdges">${rects}</svg>`;
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-}
-
-function face(main, out, eye, feature) {
-  return [
-    '.' + out.repeat(6) + '.',
-    main.repeat(8),
-    out + eye.repeat(2) + out + out + eye.repeat(2) + out,
-    main.repeat(8),
-    feature || main.repeat(8),
-    main.repeat(8),
-    '.' + out.repeat(6) + '.',
-    '........'
-  ];
-}
-
-function texGrid(base, dark, speck) {
-  const rows = [];
-  for (let y = 0; y < 8; y++) {
-    let r = '';
-    for (let x = 0; x < 8; x++) {
-      const v = (x * 3 + y * 5 + x * y) % 7;
-      r += (speck && v === 0) ? 'c' : (v < 2 ? 'b' : 'a');
-    }
-    rows.push(r);
-  }
-  return { grid: rows, pal: { a: base, b: dark, c: speck || dark } };
-}
-
-function bottleGrid(color) {
-  return {
-    grid: ['...ww...', '..w..w..', '.w....w.', '.wliilw.', '.wllllw.', '.wllllw.', '..wwww..', '........'],
-    pal: { w: '#cfe3ee', l: color, i: '#ffffff' }
-  };
-}
-
-/* ---------- 2. BASE DE DONNÉES ---------- */
-function hashStr(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }
-function norm(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
-function slug(s) { return norm(s).replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
-
-const DATABASE = [];
-function add(cat, sub, name, art, desc, tags, rarity, stats) {
-  const id = slug(name);
-  const h = hashStr(id);
-  if (!stats) {
-    if (cat === 'mob') stats = [
-      { l: 'Danger', v: sub === 'boss' ? 100 : sub === 'hostile' ? Math.min(95, 35 + Math.round(rarity / 2) + h % 12) : 0 },
-      { l: 'Vitesse', v: 30 + h % 60 },
-      { l: 'Rareté', v: rarity }
-    ];
-    else if (cat === 'bloc') stats = [
-      { l: 'Ressources', v: 40 + h % 50 },
-      { l: 'Résistance', v: 20 + h % 70 },
-      { l: 'Rareté', v: rarity }
-    ];
-    else if (cat === 'potion') stats = [
-      { l: 'Efficacité', v: 50 + h % 45 },
-      { l: 'Durée', v: 35 + h % 55 },
-      { l: 'Rareté', v: rarity }
-    ];
-    else stats = [
-      { l: 'Ressources', v: 40 + h % 55 },
-      { l: 'Danger', v: sub === 'dimension' ? 90 : 15 + h % 55 },
-      { l: 'Beauté', v: 45 + h % 50 }
-    ];
-  }
-  DATABASE.push({ id, cat, sub, name, pix: art.grid, pal: art.pal, desc, stats, tags, rarity });
-}
-
-/* ===== MOBS — tous les mobs du jeu ===== */
-function mob(sub, name, pix, desc, tags, rarity, stats) { add('mob', sub, name, pix, desc, tags, rarity, stats); }
-
-mob('hostile', 'Zombie',
-  { grid: ['.gggggg.', 'gGGGGGGg', 'gGkGGkGg', 'gGGGGGGg', 'gGGkkGGg', 'gGGGGGGg', '.gGGGGg.', '........'] },
-  "Le mob hostile le plus iconique. Apparaît la nuit et dans le noir, frappe aux portes et brûle au soleil. Bébé zombie : plus rapide et il ne brûle pas !",
-  ['nuit', 'foule', 'XP', 'village'], 10);
-mob('hostile', 'Creeper',
-  { grid: ['.gggggg.', 'gggggggg', 'gkkggkkg', 'gkkggkkg', 'gggkkggg', 'ggkkkkgg', 'ggkkkkgg', 'gggkkggg'] },
-  "Shhh… BOUM. Il explose à proximité et détruit tes constructions. Les chats le terrifient : ton meilleur anti-creeper.",
-  ['explosion', 'poudre à canon', 'icone', 'chat'], 20);
-mob('hostile', 'Squelette',
-  { grid: ['.ssssss.', 'ssssssss', 'sSkSSkSs', 'ssssssss', 'sSssssSs', 'ssskksss', '.ssssss.', '........'] },
-  "Archer redoutable qui te canarde à distance. Brûle au soleil et craint les loups. Ses os servent à apprivoiser un chien et à faire de la farine d'os.",
-  ['arc', 'os', 'nuit', 'loups'], 20);
-mob('hostile', 'Enderman',
-  { grid: ['.kkkkkk.', 'kkkkkkkk', 'kppkkppk', 'kkkkkkkk', 'kkkkkkkk', '.kkkkkk.', '........', '........'] },
-  "Ne le regarde PAS dans les yeux. Téléporteur violet qui déplace des blocs. Une citrouille sur la tête le neutralise la nuit. Lâche des perles de l'Ender !",
-  ['téléportation', 'perle', 'End', 'regard'], 45);
-mob('hostile', 'Araignée',
-  { grid: ['.kkkkkk.', 'kkkkkkkk', 'krrkkrrk', 'kkkkkkkk', 'kkkkkkkk', 'k.kkkk.k', 'k.k..k.k', '........'] },
-  "Grimpe aux murs, passe par les fenêtres et saute sur toi. Neutre le jour, agressive la nuit. Sa soie sert aux crochets et à la laine.",
-  ['grimpe', 'soie', 'nuit', 'œil'], 30);
-mob('boss', "Dragon de l'Ender",
-  { grid: ['n......n', 'nkkkkkkn', 'kppkkppk', 'kkkkkkkk', '.kkkkkk.', '.kkkkkk.', '..kkkk..', '........'] },
-  "LE boss final. Vole autour des piliers d'obsidienne de l'End et se soigne grâce aux cristaux. Détruis les cristaux, frappe-le, récupère l'Œuf de Dragon !",
-  ['boss', 'End', 'final', 'œuf'], 100);
-mob('boss', 'Wither',
-  { grid: ['.nnnnnn.', 'nnnnnnnn', 'nwwnnwwn', 'nnnnnnnn', 'nnwkkwnn', '.nnnnnn.', '..n..n..', '........'] },
-  "Boss invoqué avec 4 sables des âmes et 3 têtes de Wither-Squelette. Tire des crânes explosifs et applique Wither II. Récompense : l'étoile du Nether !",
-  ['boss', 'invoqué', 'nether star', 'sable des âmes'], 100);
-mob('boss', 'Warden',
-  { grid: ['.nnnnnn.', 'nnCnnCnn', 'nnnnnnnn', 'nnCnnCnn', 'nnnnnnnn', '.nCnnCn.', '........', '........'] },
-  "L'horreur des Deep Dark. Aveugle, il chasse aux vibrations : reste immobile ou rampe avec de la laine. Il one-shot en difficulté normale.",
-  ['aveugle', 'deep dark', 'sonar', 'sculk'], 95);
-mob('hostile', 'Slime',
-  { grid: ['........', '.gggggg.', 'gGGGGGGg', 'gGkGGkGg', 'gGGGGGGg', 'gGGGGGGg', '.GGGGGG.', '........'] },
-  "Cube rebondissant qui se divise en petits slimes. Spawn dans les « chunks à slime ». La balle de slime fabrique blocs collants et pistons.",
-  ['rebondit', 'chunk à slime', 'balle', 'divise'], 50);
-mob('hostile', 'Blaze',
-  { grid: ['..f..f..', '.yyyyyy.', 'yfkyykfy', 'yyyyyyyy', '.yykkyy.', '..yyyy..', '.f.ff.f.', 'f......f'] },
-  "Gardien des forteresses du Nether. Vole, crache des boules de feu en rafale et brûle même sous l'eau. Ses bâtons sont OBLIGATOIRES pour l'End.",
-  ['feu', 'nether', 'bâton', 'forteresse'], 60);
-mob('hostile', 'Piglin',
-  { grid: ['.FFFFFF.', 'FFFFFFFF', 'FFkFFkFF', 'FFFFFFFF', 'FFDDDFF.', 'FFFFFFFF', '.FFFFFF.', '........'] },
-  "Obsédé par l'or. Porte son armure en or et il devient neutre — échange des lingots contre un cadeau aléatoire. Sans or, il appelle ses copains !",
-  ['or', 'échange', 'nether', 'cadeau'], 55);
-mob('passif', 'Golem de Fer',
-  { grid: ['.ssssss.', 'ssssssss', 'sRssssRs', 'sssRRsss', 'sssRRsss', 'ssssssss', '.sSSSSs.', '........'] },
-  "Le protecteur des villages : lance les ennemis à 30 blocs de haut. Construis-le avec 4 blocs de fer + une citrouille. Offre-lui une fleur !",
-  ['village', 'protecteur', 'fer', 'fleur'], 40);
-mob('passif', 'Loup',
-  { grid: ['b......b', 'bbbbbbbb', 'bkbbbbkb', 'bbbbbbbb', 'bbBBBBbb', '.bBBBBb.', '..bbbb..', '........'] },
-  "Ton meilleur ami pixel. Apprivoise-le avec des os : collier rouge, attaque tes cibles, se téléporte vers toi. Les loups sauvages chassent les squelettes.",
-  ['os', 'animal', 'chien', 'apprivoise'], 35);
-mob('passif', 'Axolotl',
-  { grid: ['F.F..F.F', 'FFFFFFFF', 'FkFFFFkF', 'FFFFFFFF', '.FFFFFF.', '..F..F..', '........', '........'] },
-  "Le mob le plus mignon du jeu. Combat pour toi sous l'eau et joue mort pour tromper ses ennemis. Nage avec lui : tu obtiens Régénération !",
-  ['eau', 'mignon', 'seau', 'régén'], 70);
-mob('passif', 'Vache',
-  { grid: ['.bbbbbb.', 'bBbbbbBb', 'bkbbbbkb', 'bbbbbbbb', '.FFFFFF.', '.FkFFkF.', '..FFFF..', '........'] },
-  "Source de steak, de lait et de cuir. Le lait supprime TOUS les effets, même le Wither du Wither ! Le classique indémodable des fermes.",
-  ['lait', 'cuir', 'steak', 'village'], 15);
-mob('passif', 'Allay', { grid: face('i', 'I', 'k', '.i....i.') },
-  "Petit sprite bleu qui ramasse les objets pour toi. Donne-lui un item de référence et il collectera tous les exemplaires ! Adore danser sur la musique du juke-box.",
-  ['collecte', 'juke-box', 'amate', 'danser'], 80);
-mob('passif', 'Chat', { grid: face('m', 'S', 'k', 'mS.S.Sm.') },
-  "S'apprivoise avec du poisson cru. 11 skins différents ! Dort sur ton lit et repousse les creepers et les phantoms de ton village.",
-  ['poisson', 'animal', 'anti-creeper', 'câlin'], 35);
-mob('passif', 'Poule', { grid: face('w', 'm', 'k', 'wwyyyyww') },
-  "Pond un œuf toutes les 5-10 minutes. Les poussins naissent des œufs lancés ! Plumes + chair : le kit de survie du débutant.",
-  ['œuf', 'plume', 'ferme', 'poussin'], 10);
-mob('passif', 'Cochon', { grid: face('F', 'D', 'k', 'FDDDDDF.') },
-  "Monte-le avec une selle et une carotte sur un bâton pour parcourir le monde en cochon-taxi. Porc cuit = le steak du pauvre.",
-  ['porc', 'selle', 'carotte', 'ferme'], 10);
-mob('passif', 'Mouton', { grid: face('w', 'm', 'k', 'wFFFFFFw') },
-  "TONDS-LE avec des cisailles, ne le tue jamais : 1 à 3 laines renouvelables à l'infini. La laine se teint en 16 couleurs et bloque les vibrations du Warden.",
-  ['laine', 'cisailles', 'teinture', 'tondre'], 10);
-mob('passif', 'Champimeuh', { grid: face('r', 'R', 'k', 'rwrrwrrw') },
-  "La vache mystique des îles aux champignons. Trais-la pour un ragoût suspect, coupe-la avec des cisailles et elle redevient une vache normale.",
-  ['mycélium', 'ragoût', 'champignon', 'rare'], 75);
-mob('passif', 'Cheval', { grid: face('b', 'B', 'k', 'bBb..bBb') },
-  "Apprivoise-le à vide en montant dessus (cœurs = c'est bon). Le plus rapide des montures terrestres, avec armure en fer/or/diamant.",
-  ['monture', 'selle', 'armure', 'rapide'], 35);
-mob('passif', 'Âne', { grid: face('s', 'S', 'k', 'sS....Ss') },
-  "Plus lent que le cheval mais il PORTE UN COFFRE : 15 emplacements de transport. Croise-le avec un cheval pour obtenir une mule.",
-  ['coffre', 'monture', 'transport', 'mule'], 35);
-mob('passif', 'Mule', { grid: face('s', 'S', 'k', 'sS.b.Ss.') },
-  "Fille d'un âne et d'un cheval (stérile, comme dans la vraie vie). Combine la vitesse du cheval et le coffre de l'âne.",
-  ['croisement', 'coffre', 'monture', 'rare'], 50);
-mob('passif', 'Lama', { grid: face('m', 'S', 'k', 'mSSSSSm.') },
-  "Crache sur ses agresseurs. Équipe-le d'un coffre (3 à 15 slots) et d'un tapis coloré. Suis-en un : toute la caravane te suit !",
-  ['crache', 'caravane', 'tapis', 'coffre'], 40);
-mob('passif', 'Ocelot', { grid: face('y', 'x', 'k', 'yxyxxyxy') },
-  "Chat sauvage de la jungle. Extrêmement timide : reste immobile et regarde-le pour qu'il s'approche. Effraie les creepers comme son cousin domestique.",
-  ['jungle', 'timide', 'chat', 'sauvage'], 45);
-mob('passif', 'Panda', { grid: face('w', 'k', 'k', 'wkkwwkkw') },
-  "Vit dans la jungle à bambou. 7 personnalités (paresseux, joueur, inquiet…) avec des visages différents ! Mange du bambou et fait des roulades.",
-  ['bambou', 'mignon', 'jungle', 'personnalité'], 60);
-mob('passif', 'Perroquet', { grid: face('r', 'R', 'k', 'ryyy.yyr') },
-  "Imite le cri des mobs autour de lui et DANSE sur le juke-box. 5 couleurs. Jamais de cookies : c'est mortel pour lui (comme dans la vraie vie !).",
-  ['imitation', 'danse', 'jungle', 'cookie'], 55);
-mob('passif', 'Lapin', { grid: face('m', 'S', 'k', 'm..kk..m') },
-  "Peaux, pattes de lapin (potion de saut !) et viande. Le légendaire Killer Bunny apparaît avec /summon… fuis si tu le croises.",
-  ['peau', 'patte', 'saut', 'carotte'], 30);
-mob('passif', 'Renard', { grid: face('o', 'x', 'k', 'ow....wo') },
-  "Dort le jour, chasse la nuit. Ramasse des objets dans sa bouche (une épée !) et saute incroyablement haut. Aime les baies lumineuses.",
-  ['nuit', 'chasse', 'baies', 'dort'], 45);
-mob('passif', 'Abeille', { grid: face('y', 'x', 'k', 'ykyykyyk') },
-  "Pollinise les fleurs puis fertilise tes cultures. Ne casse JAMAIS une ruche sans feu de camp dessous, sinon tout l'essaim te pique (poison !).",
-  ['miel', 'ruche', 'pollen', 'feu de camp'], 40);
-mob('passif', 'Tortue', { grid: face('g', 'G', 'k', 'ggk..kgg') },
-  "Pond ses œufs sur SA plage d'origine. Les écailles font un casque de tortue (respiration aquatique +10s) et l'ingrédient de la potion du Maître Tortue.",
-  ['écaille', 'plage', 'casque', 'œuf'], 50);
-mob('passif', 'Grenouille', { grid: face('t', 'E', 'k', 'tt.tt.tt') },
-  "Mange les petits slimes et crée des blocs lumineux (froglights) dont la couleur dépend de sa variante : tempérée, tropicale ou froide.",
-  ['froglight', 'slime', 'variante', 'marais'], 45);
-mob('passif', 'Têtard', { grid: face('n', 'N', 'k', '..n..n..') },
-  "Le bébé de la grenouille. Se déplace dans un seau d'eau et grandit en grenouille selon le biome où il se développe.",
-  ['bébé', 'seau', 'eau', 'croissance'], 55);
-mob('passif', 'Dauphin', { grid: face('I', 'S', 'k', 'Ii....iI') },
-  "Nage près de lui : la Grâce du Dauphin booste ta vitesse sous l'eau. Il te guide vers les épaves et les trésors engloutis.",
-  ['grâce', 'nage', 'épave', 'trésor'], 50);
-mob('passif', 'Calmar', { grid: face('C', 'N', 'k', 'CC.CC.CC') },
-  "Lâche des poches d'encre pour fabriquer livres et panneaux. Les bébés calmars sortent des œufs posés dans l'eau.",
-  ['encre', 'eau', 'livre', 'noir'], 20);
-mob('passif', 'Calmar lumineux', { grid: face('c', 'C', 'k', 'cc.cc.cc') },
-  "Version lumineuse des grandes profondeurs. Son encre illumine les cadres et fait briller le texte des panneaux.",
-  ['lumineux', 'encre', 'cadre', 'profondeur'], 60);
-mob('passif', 'Morue', { grid: face('s', 'S', 'k', '..s..s..') },
-  "Le poisson des océans froids. Nourrit les chats et les ours polaires. Cuite, c'est l'encas de plongée.",
-  ['océan', 'poisson', 'chat', 'froid'], 15);
-mob('passif', 'Saumon', { grid: face('o', 'x', 'k', '..o..o..') },
-  "Remonte les rivières et peuple les eaux froides. Cuit, il nourrit mieux que la morue. Les ours en raffolent.",
-  ['rivière', 'ours', 'poisson', 'froid'], 15);
-mob('passif', 'Poisson tropical', { grid: face('y', 'x', 'k', 'y.y..y.y') },
-  "2700+ combinaisons de couleurs et de formes ! Se transporte dans un seau d'eau. La décoration vivante de ton aquarium.",
-  ['couleur', 'seau', 'aquarium', 'corail'], 40);
-mob('passif', 'Fugu', { grid: face('y', 'x', 'k', 'y.y.y.y.') },
-  "Gonfle près des joueurs : le toucher empoisonne ! Le manger est une mauvaise idée… mais c'est LA source de potion de respiration aquatique.",
-  ['poison', 'gonfle', 'respiration', 'océan'], 45);
-mob('passif', 'Chauve-souris', { grid: face('n', 'N', 'k', 'n..nn..n') },
-  "100 % décorative : vole en zigzag dans les grottes et n'en fait qu'à sa tête. Sa présence signale une grotte proche.",
-  ['grotte', 'décoratif', 'vol', 'zigzag'], 25);
-mob('passif', 'Chameau', { grid: face('a', 'A', 'k', 'a..aa..a') },
-  "Deux places ! Monte à deux joueurs, saute TRÈS haut et marche au-dessus des zombies. Spawn dans les villages du désert.",
-  ['désert', 'selle', 'saut', '2 places'], 45);
-mob('passif', 'Sniffer', { grid: face('r', 'R', 'k', 'rDDDDDDr') },
-  "Le grand gagnant du Mob Vote 2022. Renifle le sol et déterre des graines anciennes : fleur torche et graine de sniffer pour décorer !",
-  ['vote 2022', 'graines', 'fleur torche', 'renifle'], 80);
-mob('passif', 'Villageois', { grid: face('h', 'b', 'k', 'hbbbbb..') },
-  "Échange des émeraudes contre tout un tas de trésors. Sa profession dépend du bloc pro (lettrine, alambic…). Protège-le : les golems veillent.",
-  ['émeraude', 'échange', 'profession', 'village'], 15);
-mob('passif', 'Marchand ambulant', { grid: face('h', 'b', 'k', 'h.p....p') },
-  "Apparaît de nulle part avec ses lamas décoratifs. Échanges aléatoires (parfois nuls, parfois géniaux). Boit une potion d'invisibilité la nuit.",
-  ['échange', 'lama', 'invisibilité', 'nomade'], 40);
-mob('passif', 'Golem de Neige', { grid: face('w', 'm', 'k', 'wwffffww') },
-  "Construis-le : 2 blocs de neige + citrouille. Tire des boules de neige (recul sans dégâts) et sème la neige derrière lui. Fond dans les biomes chauds.",
-  ['neige', 'citrouille', 'boules', 'fond'], 35);
-mob('passif', 'Cheval-squelette', { grid: face('s', 'S', 'k', 's..SS..s') },
-  "Piège d'orage : un éclair fait apparaître 4 squelettes-cavaliers. Une fois libérés, les chevaux s'apprivoisent comme des chevaux normaux.",
-  ['orage', 'éclair', 'piège', 'rare'], 80);
-mob('passif', 'Cheval-zombie', { grid: face('g', 'G', 'k', 'g..GG..g') },
-  "Extrêmement rare, jamais généré naturellement (uniquement /summon). Un zombie… qui aurait eu une vie plus saine.",
-  ['zombie', 'summon', 'rare', 'monture'], 85);
-mob('hostile', 'Noyé', { grid: face('t', 'E', 'k', 'tk..k..t') },
-  "Zombie noyé des océans et rivières. Le SEUL moyen d'obtenir un trident : les noyés armés le lâchent (2 % sans enchantement… courage).",
-  ['trident', 'océan', 'zombie', 'noyade'], 45);
-mob('hostile', 'Momie (Husk)', { grid: face('a', 'A', 'k', 'ak..k..a') },
-  "Zombie du désert : ne brûle PAS au soleil et inflige l'effet Faim. Sa poigne de sable te ralentit au contact.",
-  ['désert', 'faim', 'sable', 'zombie'], 30);
-mob('hostile', 'Wither Squelette', { grid: face('n', 'N', 'w', 'n.....n.') },
-  "Hantent les forteresses du Nether avec leur épée de pierre : effet Wither 15 secondes ! Ramasse 3 têtes pour invoquer le Wither.",
-  ['nether', 'wither', 'tête', 'forteresse'], 65);
-mob('hostile', 'Vagabond (Stray)', { grid: face('s', 'S', 'I', 'sI....Is') },
-  "Squelette des régions enneigées : ses flèches appliquent Lenteur. Bienvenue dans le club des archers glaciaires.",
-  ['neige', 'lenteur', 'arc', 'froid'], 35);
-mob('hostile', 'Bogged', { grid: face('s', 'S', 'k', 'sg..gs..') },
-  "Squelette couvert de mousse des salles d'épreuve. Ses flèches sont empoisonnées. La mousse s'arrache… à la hache.",
-  ['mousse', 'poison', 'trial', 'salle'], 55);
-mob('hostile', 'Breeze', { grid: face('c', 'C', 'k', '.c.cc.c.') },
-  "Le fantôme du vent des salles d'épreuve. Saute dans tous les sens, tire des boules de vent qui te propulsent. Lâche des bâtons de vent.",
-  ['vent', 'saut', 'trial', 'bâton'], 65);
-mob('hostile', 'Cube de Magma', { grid: face('x', 'o', 'k', 'xooooox.') },
-  "La version infernale du slime : immunisé au feu, flotte dans la lave. La crème de magma sert aux potions de résistance au feu.",
-  ['lave', 'feu', 'crème', 'nether'], 50);
-mob('hostile', 'Ghast', { grid: face('w', 'm', 'k', 'wm..m..w') },
-  "Le fantôme géant du Nether qui PLEURE. Ses boules de feu se renvoient à la main nue ou à l'épée (exploit légendaire). Larmes de ghast = régénération.",
-  ['nether', 'boule de feu', 'larmes', 'vole'], 60);
-mob('hostile', 'Piglin zombifié', { grid: face('g', 'G', 'k', 'gF..F..g') },
-  "Neutre… jusqu'à ce que tu frappes UN SEUL d'entre eux. Alors c'est toute la horde qui te tombe dessus. Porte des pépites d'or.",
-  ['neutre', 'horde', 'or', 'nether'], 40);
-mob('hostile', 'Piglin Brute', { grid: face('F', 'D', 'k', 'FDN..NDF') },
-  "La brute des bastions : JAMAIS neutre, aucun échange possible. Hache en or, 50 PV, zéro pitié. Évite-le ou prépare-toi à mourir.",
-  ['bastion', 'hache', 'brute', 'nether'], 70);
-mob('hostile', 'Hoglin', { grid: face('D', 'R', 'k', 'D.....D.') },
-  "La bête sauvage des forêts carmin. FUIT les champignons tordus et les portails. Côtelettes crues/cuites = la nourriture du Nether.",
-  ['nether', 'côtelette', 'champignon', 'bélier'], 55);
-mob('hostile', 'Zoglin', { grid: face('D', 'R', 'k', 'Dk...kD.') },
-  "Un hoglin resté trop longtemps dans le monde normal : zombifié et FOU. Attaque absolument tout le monde, même les autres zombies.",
-  ['zombie', 'furie', 'attaque tout', 'rare'], 60);
-mob('hostile', "Araignée des cavernes", { grid: face('N', 'k', 'r', 'N.r..r.N') },
-  "La petite sœur venimeuse de l'araignée : elle s'infiltre PARTOUT (0,5 bloc !) et son poison s'accumule. Terreur des mines abandonnées.",
-  ['poison', 'mine', 'petite', 'venin'], 50);
-mob('hostile', 'Endermite', { grid: face('p', 'P', 'k', '.p.pp.p.') },
-  "Apparaît parfois (5 %) quand une perle de l'Ender se téléporte. Les endermans la HAISSENT et la pourchassent. Parfaite pour farmer les endermans !",
-  ['perle', 'téléportation', 'appât', 'End'], 60);
-mob('hostile', "Poisson d'argent", { grid: face('s', 'S', 'k', '.s.ss.s.') },
-  "Se cache dans les blocs de pierre infestés (impossibles à distinguer !). Quand tu en touches un, TOUTE la colonne sort de la muraille.",
-  ['infesté', 'muraille', 'colonie', 'surprise'], 35);
-mob('hostile', 'Phantom', { grid: face('I', 'S', 'k', 'I.I..I.I') },
-  "Spawn si tu ne dors pas 3 jours d'affilée. Plongent en piqué sur toi. Leurs membranes réparent les élytras : DORS, ou farme !",
-  ['insomnie', 'piqué', 'membrane', 'elytra'], 45);
-mob('hostile', 'Gardien', { grid: face('C', 'N', 'k', 'CkkkkkkC') },
-  "Œil unique géant, rayon laser à 15 blocs : cache-toi derrière des blocs entre deux tirs. Ils gardent les monuments océaniques.",
-  ['laser', 'monument', 'océan', 'prismarine'], 55);
-mob('hostile', 'Grand Gardien', { grid: face('C', 'N', 'k', 'CkkkkkkC') },
-  "Le boss du monument : 3 par monument, effet « Mal de pioche » (minage 5x plus lent) et ÉPONGES en récompense. Le boss de la mi-partie aquatique.",
-  ['boss', 'éponge', 'monument', 'mal de pioche'], 75);
-mob('hostile', 'Pillard', { grid: face('m', 'S', 'k', 'm..bb..m') },
-  "L'arbalétrier des avant-postes et des raids. Tue un capitaine (bannière sur la tête) et tu déclenches Mauvais Présage → RAID sur le village.",
-  ['raid', 'arbalète', 'avant-poste', 'bannière'], 40);
-mob('hostile', 'Évocateur', { grid: face('m', 'S', 'k', 'm.pp..p.') },
-  "Le mage des manoirs et des raids. Invoque des crocs de sol et des vexs. Lâche le TOTEM d'immortalité : une seconde vie dans ta main !",
-  ['totem', 'crocs', 'vex', 'manoir'], 80);
-mob('hostile', 'Vindicateur', { grid: face('m', 'S', 'k', 'm.bb..b.') },
-  "Le hachoir des manoirs : hache en fer, sprint, dégâts lourds. Nomme-le « Johnny » et il attaque ABSOLUMENT TOUT le monde (référence culte).",
-  ['hache', 'manoir', 'johnny', 'raid'], 55);
-mob('hostile', 'Illusionniste', { grid: face('m', 'S', 'k', 'm..cc..m') },
-  "Le mage fantôme : non-généré naturellement, uniquement via /summon. Crée des clones d'illusion et devient invisible pour mieux te surprendre.",
-  ['illusion', 'clones', 'summon', 'invisible'], 90);
-mob('hostile', 'Vex', { grid: face('c', 'C', 'k', '.k....k.') },
-  "Mini fantômes invoqués par l'évocateur : TRAVERSENT les murs avec leur épée de fer. Durée de vie limitée, mais insupportables.",
-  ['murs', 'épée', 'invoqué', 'vol'], 60);
-mob('hostile', 'Ravageur', { grid: face('s', 'S', 'r', 's.....s.') },
-  "Le bélier de guerre des raids : 100 PV, détruit les récoltes et les feuilles, projette les joueurs en l'air. Lâche une selle.",
-  ['raid', 'bélier', '100 PV', 'selle'], 70);
-mob('hostile', 'Sorcière',
-  { grid: ['..pppp..', '.pppppp.', 'pppppppp', '.hhhhhh.', 'hhkhhkhh', '.hkkkkh.', '........', '........'] },
-  "Vit dans les cabanes des marais. Lance potions de poison, lenteur et dégâts… et se soigne avec ses propres potions. Drop : redstone, sucre, poudre.",
-  ['potion', 'cabane', 'marais', 'alchimie'], 55);
-mob('hostile', 'Géant', { grid: face('g', 'G', 'k', '.ggggg..') },
-  "Le zombie de 12 blocs de haut : 100 PV mais incapable de te viser correctement. Uniquement invoqué avec /summon — le mob fantôme de la bêta.",
-  ['zombie', '12 blocs', 'summon', 'bêta'], 85);
-mob('hostile', 'Zombie villageois', { grid: face('g', 'G', 'k', 'g..hh..g') },
-  "Un villageois mordu ! GUÉRIS-LE : potion de faiblesse + pomme dorée → rabais permanents sur ses échanges. La ruse des gros commerçants d'émeraudes.",
-  ['guérison', 'rabais', 'pomme', 'village'], 40);
-
-/* ===== ARMES & OUTILS : 6 matériaux x 5 outils, générés ===== */
-/* ===== ARMES & OUTILS : 6 matériaux x 5 outils, générés ===== */
-const MATERIAUX = [
-  ['bois', 'b', 'B', 5], ['pierre', 's', 'S', 15], ['fer', 'm', 'S', 30],
-  ['or', 'y', 'x', 40], ['diamant', 'c', 'C', 70], ['netherite', 'n', 'N', 95]
-];
-const MAT_DESC = {
-  bois: "l'outil de débutant : fragile mais gratuit, parfait pour la première heure.",
-  pierre: "le bon compromis de la early game, abondant et vite remplacé.",
-  fer: "le standard fiable de l'aventure : solide, réparable, facile à trouver.",
-  or: "ultra rapide mais casse vite : réserve-le au Nether et au style.",
-  diamant: "robuste et redoutable : le rêve de tout mineur depuis 2010.",
-  netherite: "le sommet absolu : résiste au feu et au lavage au lodestone."
+TIERS.forEach(t => Object.keys(PATTERNS_OUTIL).forEach(k=>{
+  RECETTES.push({ n:`${k} en ${t.n}`, c:"Outils", g:PATTERNS_OUTIL[k],
+    m:{ M:t.ing, B:"Bâton" },
+    o:`1 ${k.toLowerCase()} en ${t.n.toLowerCase()}`, q:1 });
+}));
+/* Recettes générées : armures (maille non craftable) */
+const PATTERNS_ARMURE = {
+ "Casque":["MMM","M M"],"Plastron":["M M","MMM","MMM"],"Jambières":["MMM","M M","M M"],"Bottes":["M M","M M"]
 };
-const SHAPES = [
-  ['......QQ', '.....QQ.', '....QQ..', '...QQ...', '..uQ....', '.uu.....', 'uu......', '........'],
-  ['.QQQQQQ.', 'QQ....QQ', 'Q...u..Q', '....u...', '...u....', '..u.....', '..u.....', '.u......'],
-  ['..QQQ...', '.QQQQQ..', '.QQuQQ..', '..Qu.q..', '...u....', '...u....', '..u.....', '..u.....'],
-  ['...QQ...', '..QQQQ..', '..qQQq..', '...uu...', '...u....', '...u....', '..u.....', '..u.....'],
-  ['.QQQQQ..', '.q...q..', '.....u..', '....u...', '....u...', '...u....', '...u....', '..u.....']
-];
-const OUTILS = ['Épée', 'Pioche', 'Hache', 'Pelle', 'Houe'];
-MATERIAUX.forEach(([mat, c1, c2, rare], mi) => {
-  OUTILS.forEach((outil, oi) => {
-    const name = outil + ' en ' + mat;
-    const grid = SHAPES[oi].map(r => r.replace(/Q/g, c1).replace(/q/g, c2));
-    const stats = [
-      { l: 'Dégâts', v: Math.min(95, 10 + mi * 15 + (4 - oi) * 2) },
-      { l: 'Durabilité', v: Math.min(100, 10 + mi * 18) },
-      { l: 'Rareté', v: Math.min(100, rare + oi) }
-    ];
-    add('arme', outil.toLowerCase(), name, { grid }, "L'" + outil.toLowerCase() + " en " + mat + " : " + MAT_DESC[mat],
-      [mat, outil.toLowerCase(), 'outil', 'craft'], Math.min(100, rare + oi), stats);
-  });
+const ARMURE_LETTER = { "Cuir":"K","Fer":"I","Or":"O","Diamant":"D","Netherite":"N" };
+ARMURES_T.filter(m=>m.ing).forEach(m => PIECES.forEach(p=>{
+  const letter = ARMURE_LETTER[m.n];
+  RECETTES.push({ n:`${p} en ${m.n}`, c:"Armures", g:PATTERNS_ARMURE[p].map(r=>r.replace(/M/g,letter)),
+    m:{ [letter]: m.ing }, o:`1 ${p.toLowerCase()} en ${m.n.toLowerCase()}`, q:1 });
+}));
+
+/* Recettes : légende des lettres partagée */
+RECETTES.forEach(r=>{ r.key = r.n.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-"); });
+
+/* ---------- Utilitaires ---------- */
+const $ = s=>document.querySelector(s);
+const $$ = s=>[...document.querySelectorAll(s)];
+const norm = s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+const esc = s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const slug = s=>norm(s).replace(/[^a-z0-9]+/g,"-");
+let FAVORIS = JSON.parse(localStorage.getItem("mcd-fav-v2")||"[]");
+const saveFav = ()=>{ localStorage.setItem("mcd-fav-v2",JSON.stringify(FAVORIS)); $("#fav-count").textContent=FAVORIS.length; };
+const isFav = k=>FAVORIS.includes(k);
+const toggleFav = k=>{ FAVORIS = isFav(k)?FAVORIS.filter(x=>x!==k):[...FAVORIS,k]; saveFav(); };
+
+/* ---------- Catalogue global ---------- */
+const CATALOGUE = [];
+const pushCat = (arr,cat,page)=>arr.forEach(o=>CATALOGUE.push({ ...o, _cat:cat, _page:page, _slug:slug(o.n) }));
+pushCat(MOBS,"Mobs","mobs");
+pushCat(TOUTES_ARMES,"Armes & Armures","armes");
+pushCat(POTIONS,"Potions","potions");
+pushCat(BLOCS,"Blocs","blocs");
+pushCat(BIOMES,"Biomes","biomes");
+pushCat(RECETTES,"Recettes","craft");
+pushCat(COMMANDES,"Commandes","craft");
+
+/* ---------- Navigation ---------- */
+function showPage(p){
+  $$(".page").forEach(x=>x.classList.remove("active"));
+  const el = $("#page-"+p); if(el) el.classList.add("active");
+  $$(".tab").forEach(t=>t.classList.toggle("active",t.dataset.page===p));
+  $("#tabs").classList.remove("open"); $("#burger").setAttribute("aria-expanded","false");
+  window.scrollTo({top:0,behavior:"smooth"});
+  if(p==="favoris") renderFavoris();
+  if(p==="craft") renderCraft();
+}
+document.addEventListener("click",e=>{
+  const b = e.target.closest("[data-page]");
+  if(b){ e.preventDefault(); showPage(b.dataset.page);
+    if(b.dataset.jump) setTimeout(()=>document.getElementById("sec-"+b.dataset.jump)?.scrollIntoView({behavior:"smooth"}),300); }
 });
 
-/* ===== BLOCS ===== */
-function bloc(sub, name, art, desc, tags, rarity) { add('bloc', sub, name, art, desc, tags, rarity); }
-bloc('naturel', 'Herbe', texGrid('#57a63d', '#2f6b22', '#3ecf6f'),
-  "Le bloc le plus répandu du monde. Les creepers y laissent des cratères, les moutons y paissent, et il meurt sous les blocs opaques.",
-  ['vert', 'surface', 'commun', 'pelouse'], 1);
-bloc('naturel', 'Terre', texGrid('#8a5a2b', '#5c3a1a', '#a06a35'),
-  "Humble, innombrable, indestructible par l'érosion… mais sans elle, pas de fermes. Se transforme en chemin avec une pelle.",
-  ['sol', 'ferme', 'commun', 'pelle'], 1);
-bloc('naturel', 'Pierre', texGrid('#9a9aa0', '#7d7d84', '#b5b5bb'),
-  "La base de la mining : 64 blocs plus bas, c'est chez toi. Se crainte en cobblestone et devient andésite au fil des veines.",
-  ['mine', 'commun', 'cobblestone', 'souterrain'], 1);
-bloc('naturel', 'Sable', texGrid('#e7d8a8', '#c9b478', '#f5e8c0'),
-  "Tombant sous l'effet de la gravité, il ensevelit les imprudents. Fond en verre au four et s'accorde aux tortues.",
-  ['gravité', 'verre', 'désert', 'plage'], 5);
-bloc('naturel', 'Glowstone', texGrid('#f2c12e', '#c9932a', '#ffe98a'),
-  "La lampe du Nether : éclaire 15 niveaux, au maximum possible. Se mine en poussière et se recompose en blocs.",
-  ['lumière', 'nether', 'lampe', 'poussière'], 55);
-bloc('naturel', 'Obsidienne', texGrid('#23232b', '#141419', '#3a3a52'),
-  "Quasi indestructible (10 s à la pioche diamant !), née de l'eau sur la lave. 10 blocs suffisent pour un portail du Nether.",
-  ['portail', 'lave', 'résistant', 'end'], 45);
-bloc('naturel', 'Netherrack', texGrid('#7a2119', '#5a130e', '#93362c'),
-  "La chair de pierre du Nether : brûle à l'infini une fois allumée. Fragile, mais forme tout l'enfer du jeu.",
-  ['nether', 'feu', 'rouge', 'infini'], 20);
-bloc('naturel', "Roche de l'End", texGrid('#d8dba8', '#b5b885', '#ecefbf'),
-  "La pierre pâle de la dimension finale : résiste au dragon et ne brûle jamais. Un air de grès interstellaire.",
-  ['end', 'pâle', 'dimension', 'dragon'], 50);
-bloc('précieux', 'Minerai de diamant', texGrid('#9a9aa0', '#7d7d84', '#4ee3e3'),
-  "LE graal du minage, entre les couches -59 et 16. Une pioche en fer minimum, sinon adieu le diamant…",
-  ['diamant', 'mine', 'graal', 'profond'], 80);
-bloc('précieux', 'Minerai d\'or', texGrid('#9a9aa0', '#7d7d84', '#f2c12e'),
-  "Caché dans la pierre et les badlands. L'or du Nether est 10 fois plus fréquent : les piglins le savent.",
-  ['or', 'mine', 'piglin', 'badlands'], 45);
-bloc('précieux', "Minerai d'émeraude", texGrid('#9a9aa0', '#7d7d84', '#3ecf6f'),
-  "Le minerai le plus rare du jeu : exclusif aux montagnes et aux biomes de pics. La monnaie officielle des villageois.",
-  ['émeraude', 'rare', 'montagne', 'monnaie'], 90);
-bloc('précieux', 'Minerai de redstone', texGrid('#9a9aa0', '#7d7d84', '#d63c2f'),
-  "S'illumine quand on marche dessus. Poudre rouge = circuits, potions et horloges. La base de toute l'ingénierie du jeu.",
-  ['redstone', 'circuit', 'lumière', 'ingénierie'], 40);
-bloc('précieux', 'Minerai de lapis-lazuli', texGrid('#9a9aa0', '#7d7d84', '#4a9eff'),
-  "Bleu profond du sous-sol : indispensable aux enchantements et aux teintures. Les pyramides égyptiennes n'ont qu'à bien se tenir.",
-  ['lapis', 'enchantement', 'bleu', 'teinture'], 40);
-bloc('fabriqué', 'Table de craft', texGrid('#8a5a2b', '#5c3a1a', '#b5885a'),
-  "Le premier bloc à poser de toute aventure : 2x2 devient 3x3 et le monde s'ouvre. Sans elle, tu restes un villageois sans métier.",
-  ['craft', '3x3', 'premier', 'essentiel'], 2);
-bloc('fabriqué', 'Four', texGrid('#7d7d84', '#5a5a60', '#9a9aa0'),
-  "Cuire un steak, fondre un fer, griller du sable : le four est la seconde moitié de ta base. Version blast furnace pour l'urgence.",
-  ['cuisson', 'fondre', 'base', 'steak'], 2);
-bloc('fabriqué', 'Coffre', texGrid('#8a5a2b', '#5c3a1a', '#c9a35a'),
-  "27 cases de bonheur (54 pour le double). Résiste à la lave ? Non. Mais un âne mort récupère son coffre : pense-y !",
-  ['stockage', '27 cases', 'butin', 'base'], 5);
-bloc('fabriqué', 'TNT', texGrid('#d63c2f', '#8f1f16', '#f5f5f5'),
-  "4 sables + 5 poudres = 1 TNT. Mine massive, pièges, canons… ou la fin de ta base si tu confonds clic gauche et briquet.",
-  ['explosion', 'poudre', 'mine', 'piège'], 35);
-bloc('fabriqué', 'Verre', texGrid('#bfe8ff', '#7db8e8', '#e8f6ff'),
-  "Transparent, artisanal, fragile : le luxe du bâtisseur. Fond en 0,5 s face à un creeper en colère.",
-  ['transparent', 'fenêtre', 'bâtiment', 'sable'], 10);
-bloc('fabriqué', 'Briques', texGrid('#c96a1e', '#9a4a12', '#e2762a'),
-  "Argile cuite au four : résistant au ghast, esthétique à souhait. Le bloc des maisons de bourgeois du village.",
-  ['maison', 'résistant', 'argile', 'bâtiment'], 20);
-bloc('fabriqué', 'Bloc d\'or', texGrid('#f2c12e', '#c9932a', '#ffe98a'),
-  "9 lingots compactés en décoration criarde. Les piglins s'en servent de piédestal : pose-toi la question du luxe.",
-  ['or', 'piglin', 'décoration', 'luxe'], 45);
-bloc('fabriqué', "Bloc d'émeraude", texGrid('#3ecf6f', '#2aa24a', '#8ef5b0'),
-  "9 émeraudes = 1 bloc de richesse pure. Le modo de la banque du village : personne ne peut te le voler en survie.",
-  ['émeraude', 'richesse', 'stockage', 'vert'], 75);
-bloc('fabriqué', 'Bloc de diamant', texGrid('#4ee3e3', '#1b8f8f', '#b0f5f5'),
-  "Le symbole de la réussite Minecraft. 9 diamants, une armure full enchantée et le respect éternel du serveur.",
-  ['diamant', 'richesse', 'finale', 'cyan'], 85);
+/* ---------- Particules flottantes ---------- */
+(function(){
+  const icons=["🟩","⛏️","💎","🧟","⚔️","🧪","🔥","🟪","🧱","🏹","🟨","🍄"];
+  const c=$("#floaters");
+  for(let i=0;i<22;i++){
+    const s=document.createElement("span"); s.className="floater";
+    s.textContent=icons[i%icons.length];
+    s.style.left=Math.random()*100+"%";
+    s.style.animationDuration=12+Math.random()*18+"s";
+    s.style.animationDelay=-Math.random()*20+"s";
+    s.style.fontSize=18+Math.random()*22+"px";
+    c.appendChild(s);
+  }
+})();
 
-/* ===== POTIONS ===== */
-function potion(sub, name, color, desc, tags, rarity) { add('potion', sub, name, bottleGrid(color), desc, tags, rarity); }
-potion('positive', 'Potion de soin', '#e04a3a',
-  "Rend instantanément 4 points de vie. La classique des combats de boss : garde-en toujours deux sur toi.",
-  ['soin', 'instantané', 'combat', 'nether wart'], 25);
-potion('positive', 'Potion de force', '#c96a1e',
-  "Booste tes dégâts au corps à corps de 130 % en niveau II. Le combo tueur : force II + épée en netherite.",
-  ['force', 'dégâts', 'combat', 'poudre à canon'], 45);
-potion('positive', 'Potion de rapidité', '#7db8e8',
-  "Vitesse de déplacement +20 % (II : +40 %). Le choice des pvp-istes et des fuyards de creepers.",
-  ['vitesse', 'fuite', 'pvp', 'sucre'], 30);
-potion('positive', 'Potion de régénération', '#f2a0b5',
-  "Régénère la vie progressivement pendant 45 s. Ghast tears + nether wart : le remède des longues sessions de raid.",
-  ['régén', 'lent', 'ghast', 'raid'], 55);
-potion('positive', 'Potion de résistance au feu', '#ff9d3c',
-  "Immunise contre le feu et la lave : plonge dans le Nether sans stress. Le choix n°1 des explorateurs de l'enfer.",
-  ['feu', 'lave', 'nether', 'magma'], 40);
-potion('positive', 'Potion d\'invisibilité', '#bfe8ff',
-  "Rend ton skin invisible (pas ton armure !). Idéal pour infiltrer un bastion ou jouer au fantôme entre amis.",
-  ['invisible', 'furtif', 'bastion', 'carrot'], 60);
-potion('positive', 'Potion de nuit', '#1b2f8f',
-  "Vois clair dans le noir absolu. Indispensable pour miner ou visiter les Deep Dark sans torche en main.",
-  ['nuit', 'vision', 'grotte', 'minage'], 35);
-potion('positive', 'Potion de chute lente', '#cfe3ee',
-  "Tombe en douceur pendant 90 s : fini les chutes mortelles de l'End. À boire avant tout saut de la foi.",
-  ['chute', 'saut', 'end', 'plume'], 40);
-potion('négative', 'Potion de poison', '#3ecf6f',
-  "Empoisonne jusqu'à laisser 1 demi-cœur. Redoutable en flèche traînante sur un boss… ou sur ton ami.",
-  ['poison', 'dégâts', 'flèche', 'araignée'], 35);
-potion('négative', 'Potion de faiblesse', '#9aa0a6',
-  "Réduit les dégâts infligés de 4 points. Le secret pour ZOMBIFIER puis guérir un villageois : coût réduit garanti.",
-  ['faiblesse', 'guérison', 'villageois', 'zombie'], 30);
-potion('négative', 'Potion de lenteur', '#7a8f9c',
-  "Ralentit la cible à 60 % de sa vitesse. La peur des pvp-istes : impossible de fuir, impossible de rattraper.",
-  ['lenteur', 'pvp', 'piege', 'slime'], 30);
-potion('spéciale', 'Potion d\'expérience', '#4ee36a',
-  "Version rare du savoir : donne des points d'XP à la bouteille. Lâchée par les pêcheurs et les towers de mobs.",
-  ['xp', 'bouteille', 'rare', 'pêche'], 65);
-potion('spéciale', 'Potion du Maître Tortue', '#3ecf6f',
-  "Slowness IV + Résistance III : un escargot blindé. Le choix stratégique contre les boss rapides comme le Warden.",
-  ['tortue', 'résistance', 'lenteur', 'stratégie'], 75);
-potion('spéciale', 'Potion de chance', '#3ecf6f',
-  "Augmente la qualité du butin de pêche et de trésor. Non-craftable : exclusive aux maps et aux luck blocks.",
-  ['chance', 'butin', 'pêche', 'rare'], 85);
+/* ---------- Stats + features accueil ---------- */
+(function(){
+  const total = CATALOGUE.filter(c=>["_cat"].length && c._cat!=="Recettes" && c._cat!=="Commandes").length
+    + RECETTES.length + COMMANDES.length;
+  $("#hero-stats").innerHTML = [
+    ["👾",MOBS.length,"mobs"],["⚔️",TOUTES_ARMES.length,"armes & armures"],
+    ["🧪",POTIONS.length,"potions"],["🧱",BLOCS.length,"blocs"],
+    ["🌍",BIOMES.length,"biomes"],["🛠️",RECETTES.length,"recettes"],["💻",COMMANDES.length,"commandes"]
+  ].map(([i,v,l])=>`<div class="stat"><b>${v}</b><span>${i} ${l}</span></div>`).join("");
+  $("#features").innerHTML = [
+    ["🔍","Recherche universelle","Une seule barre pour tout retrouver : mobs, objets, recettes, commandes. Essaye « red » !"],
+    ["🛠️","Table de craft interactive","Chaque recette affichée en grille 3×3, comme en jeu. Plus de 100 recettes recensées."],
+    ["💻","Bloc de commandes simulé","Tape tes commandes et vois le résultat, en mode Java ou Bedrock. Erreurs incluses !"],
+    ["⭐","Favoris","Garde tes fiches préférées en étoile, sauvegardées dans ton navigateur."],
+    ["🔗","Fiches partageables","Chaque fiche a son lien direct, comme ?fiche=creeper."],
+    ["📱","100% mobile","Pixel-art, animations et glisse fluide, du téléphone au 4K."]
+  ].map(([i,t,d])=>`<div class="feature"><div class="f-ico">${i}</div><h3>${t}</h3><p>${d}</p></div>`).join("");
+})();
 
-/* ===== BIOMES ===== */
-function biome(sub, name, art, desc, tags, rarity) { add('biome', sub, name, art, desc, tags, rarity); }
-biome('overworld', 'Plaines', texGrid('#57a63d', '#2f6b22', '#6bc94f'),
-  "Le biome du départ : plat, vert, sûr. Villages, abeilles, chevaux et le coucher de soleil le plus instagrammable.",
-  ['départ', 'village', 'vert', 'sur'], 1);
-biome('overworld', 'Désert', texGrid('#e7d8a8', '#c9b478', '#f5e8c0'),
-  "Sable, cactus, temples à pièges à TNT et momies qui ne brûlent pas au soleil. Apportez de l'eau et de la prudence.",
-  ['sable', 'temple', 'husk', 'cactus'], 20);
-biome('overworld', 'Jungle', texGrid('#2aa24a', '#1a6b2f', '#3ecf6f'),
-  "L'enfer vert : bambous, pandas, perroquets et temples aux crochets. On y perd vite le nord (et la laine).",
-  ['bambou', 'panda', 'temple', 'dense'], 35);
-biome('overworld', 'Taïga', texGrid('#3a6b3f', '#255228', '#4a8a52'),
-  "Sapins, loups, renards, villages et baies lumineuses. Le biome cocon parfait pour une base en rondins.",
-  ['loups', 'renard', 'sapin', 'village'], 25);
-biome('overworld', 'Marais', texGrid('#4a6b3a', '#2f4a24', '#5c7a3a'),
-  "Grenouilles, sorcières, cabanes et nénuphars. Le paradis du slime : creuse sous la lune et écoute le « boing ».",
-  ['sorcière', 'slime', 'grenouille', 'cabane'], 30);
-biome('overworld', 'Toundra enneigée', texGrid('#eef0f6', '#b8c4d8', '#ffffff'),
-  "Blanc à perte de vue : igloos, ours polaires, strays et villages gelés. La neige transforme tout en carte postale.",
-  ['neige', 'igloo', 'ours', 'froid'], 25);
-biome('overworld', 'Montagnes', texGrid('#8a8f9c', '#5a5f6c', '#c9ccd8'),
-  "Pics à 250 blocs d'altitude, émeraudes, chèvres et chutes vertigineuses. La vue la plus belle du jeu.",
-  ['émeraude', 'hauteur', 'chèvre', 'pic'], 40);
-biome('overworld', 'Océan', texGrid('#1b8f8f', '#0f5a5a', '#35d9d9'),
-  "Monuments gardés par des gardiens, épaves, trésors et corridors de corail. Apporte ta potion de respiration !",
-  ['monument', 'épave', 'trésor', 'gardien'], 30);
-biome('overworld', 'Grottes de stalactites', texGrid('#8a5a2b', '#5c3a1a', '#b5885a'),
-  "Stalactites qui tombent, stalagmites qui percent et gouffres de lave. Le biome le plus dangereux du Overworld.",
-  ['grotte', 'lave', 'pointe', 'dangereux'], 45);
-biome('nether', 'Forêt carmin', texGrid('#8f1f16', '#5a130e', '#c96a1e'),
-  "Le bois rouge du Nether : hoglins, piglins et champignons géants. Le biome le plus vivant de l'enfer.",
-  ['hoglin', 'piglin', 'rouge', 'champignon'], 40);
-biome('nether', 'Forêt tordue', texGrid('#6b2fa8', '#3a1a5c', '#a45de5'),
-  "Le seul endroit sûr du Nether : les piglins la fuient ! Endermans à gogo, parfait pour farmer les perles.",
-  ['enderman', 'perle', 'sûr', 'violet'], 45);
-biome('nether', 'Terres désolées', texGrid('#7a2119', '#4a0f0a', '#93362c'),
-  "Le Nether classique : netherrack, lave à perte de vue, ghasts et Forteresses aux blazes. Apporte des bottes en or.",
-  ['ghast', 'lave', 'forteresse', 'blaze'], 35);
-biome('nether', 'Deep Dark', texGrid('#23232b', '#141419', '#35d9d9'),
-  "Le biome du silence : sculk, capteurs et WARDEN. Rampe, rampe, rampe. Le butin le plus riche… si tu sors vivant.",
-  ['warden', 'sculk', 'silence', 'cité'], 85);
-biome('end', "L'End (île centrale)", texGrid('#d8dba8', '#b5b885', '#ecefbf'),
-  "Le plateau de Combat : piliers d'obsidienne, cristaux et le Dragon. Une fois vaincu, le portail vers la ville s'ouvre.",
-  ['dragon', 'boss', 'cristaux', 'final'], 90);
-biome('end', "Terres de l'End", texGrid('#d8dba8', '#b5b885', '#ecefbf'),
-  "L'infinité pâle des îles extérieures : villes de l'End, elytras et shulkers. La zone de fin de partie la plus gratifiante.",
-  ['elytra', 'shulker', 'ville', 'fin de partie'], 70);
-
-/* ---------- 3. ÉTAT + OUTILS UI ---------- */
-const $ = s => document.querySelector(s);
-const RAR_CLASS = { commun: 'rarity-commun', rare: 'rarity-rare', 'épique': 'rarity-épique', 'légendaire': 'rarity-légendaire' };
-const SUBS = {
-  mob: ['boss', 'hostile', 'passif'],
-  arme: ['épée', 'pioche', 'hache', 'pelle', 'houe'],
-  bloc: ['naturel', 'précieux', 'fabriqué'],
-  potion: ['positive', 'négative', 'spéciale'],
-  biome: ['overworld', 'nether', 'end']
-};
-const state = {
-  cat: 'mob', sub: null, q: '',
-  favs: JSON.parse(localStorage.getItem('mcd-favs') || '[]')
-};
-function rarityOf(v) { return v >= 85 ? 'légendaire' : v >= 60 ? 'épique' : v >= 25 ? 'rare' : 'commun'; }
-
-function matchQuery(it) {
-  if (!state.q) return true;
-  const q = norm(state.q);
-  const n = norm(it.name);
-  if (n.includes(q)) return true;
-  let i = 0;
-  for (const ch of n) { if (ch === q[i]) i++; }
-  return i === q.length || norm(it.tags.join(' ') + ' ' + (it.desc || '')).includes(q);
+/* ---------- Rendu générique des cartes ---------- */
+function pillClass(t){
+  if(["hostile"].includes(t))return"p-hostile"; if(["passif"].includes(t))return"p-passif";
+  if(["boss"].includes(t))return"p-boss"; if(["positive"].includes(t))return"p-pos";
+  if(["negative"].includes(t))return"p-neg"; if(["special","spéciale"].includes(t))return"p-spec";
+  return"p-dim";
 }
-
-function cardHTML(it) {
-  const rar = rarityOf(it.rarity);
-  return `<article class="card cat-${it.cat} rarity-${rar}" tabindex="0" data-id="${it.id}">
-    <button class="fav-btn ${state.favs.includes(it.id) ? 'on' : ''}" aria-label="Ajouter aux favoris">★</button>
-    <img src="${svgFromGrid(it.pix, it.pal)}" alt="${it.name}">
-    <h3>${it.name}</h3>
-    <div class="card-meta">
-      <span class="card-cat">${it.cat}</span>
-      <span class="rarity-pill ${RAR_CLASS[rar]}">${rar}</span>
-    </div>
-    <span class="top-stat">${it.stats[0].l} : ${it.stats[0].v}</span>
+function cardHTML(o,cat){
+  const k = o._slug || slug(o.n);
+  const pill = o.t ? `<span class="pill ${pillClass(o.t)}">${o.t.toUpperCase()}</span>` : "";
+  const extra = o.d!==undefined && (cat==="mobs") ? `<div class="c-line">⚔️ ${o.d} dégâts · 🛡️ ${o.hp} PV</div>` : "";
+  const extraA = cat==="armes" ? `<div class="c-line">⚔️ ${o.d??0} dégâts${o.dur?` · ♾️ dur. ${o.dur}`:""}</div>` : "";
+  const extra2 = cat==="biomes" ? `<div class="c-line">${o.dim} · ${o.cl}</div>` :
+    (o.b && cat!=="armes" ? `<div class="c-line">📍 ${o.b}</div>` : "");
+  const fav = `<button class="fav-btn ${isFav(cat+"/"+k)?"on":""}" data-fav="${cat}/${k}" aria-label="Favori">★</button>`;
+  return `<article class="card" data-open="${cat}" data-slug="${k}" tabindex="0">${fav}
+    <div class="c-ico">${o.i||"🧱"}</div><h3>${o.n}</h3>${pill}${extra}${extraA}${extra2}
+    ${o.hp!==undefined&&cat==="mobs"?`<div class="hp-bar"><i style="width:${Math.min(100,(o.hp/500)*100+4)}%"></i></div>`:""}
   </article>`;
 }
-
-function renderSubs() {
-  const bar = $('#subfilter-bar');
-  const subs = SUBS[state.cat] || [];
-  bar.innerHTML = subs.map(s =>
-    `<button class="chip ${state.sub === s ? 'active' : ''}" data-sub="${s}">${s}</button>`
-  ).join('') + `<button class="chip random" title="Fiche au hasard">🎲 Aléatoire</button>`;
-}
-
-function render() {
-  const list = (state.cat === 'fav'
-    ? DATABASE.filter(it => state.favs.includes(it.id))
-    : DATABASE.filter(it => it.cat === state.cat))
-    .filter(it => !state.sub || it.sub === state.sub)
-    .filter(matchQuery);
-  $('#cards-grid').innerHTML = list.map(cardHTML).join('');
-  $('#shown-count').textContent = list.length;
-  $('#empty-state').classList.toggle('hidden', list.length > 0);
-  renderSubs();
-}
-
-function updateCounts() {
-  ['mob', 'arme', 'bloc', 'potion', 'biome'].forEach(c => {
-    const el = $('#count-' + c);
-    if (el) el.textContent = DATABASE.filter(i => i.cat === c).length;
-  });
-  $('#total-count').textContent = DATABASE.length;
-  const favEl = $('#count-fav');
-  if (favEl) favEl.textContent = state.favs.length;
-}
-
-function toast(msg) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
-  clearTimeout(t._h);
-  t._h = setTimeout(() => t.classList.add('hidden'), 2200);
-}
-
-/* ---------- 4. MODAL ---------- */
-function openModal(it) {
-  const rar = rarityOf(it.rarity);
-  $('#modal-body').innerHTML = `
-    <div class="modal-hero cat-${it.cat}">
-      <div class="cube-wrap">${cube3D(it, 92)}</div>
-      <div>
-        <h2>${it.name}</h2>
-        <div class="modal-tags">
-          <span class="pill">${it.cat}</span>
-          <span class="pill">${it.sub || ''}</span>
-          <span class="rarity-pill ${RAR_CLASS[rar]}">${rar}</span>
-        </div>
-      </div>
-    </div>
-    <p class="modal-desc">${it.desc}</p>
-    <div class="stat-bars">${it.stats.map(s => `
-      <div class="stat-row">
-        <span class="stat-label">${s.l}</span>
-        <span class="stat-track"><span class="stat-fill" style="width:${Math.min(100, s.v)}%"></span></span>
-        <span class="stat-val">${s.v}</span>
-      </div>`).join('')}</div>
-    <div class="modal-chips">${it.tags.map(t => `<span class="chip">${t}</span>`).join('')}</div>`;
-  $('#modal-overlay').classList.remove('hidden');
-  history.replaceState(null, '', '?fiche=' + it.id);
-}
-function closeModal() {
-  $('#modal-overlay').classList.add('hidden');
-  history.replaceState(null, '', location.pathname);
-}
-
-/* ---------- 5. RECHERCHE ---------- */
-function showSuggestions() {
-  const box = $('#search-suggestions');
-  if (!state.q) { box.classList.add('hidden'); return; }
-  const q = norm(state.q);
-  const picks = DATABASE.filter(it => norm(it.name).includes(q)).slice(0, 6);
-  box.innerHTML = picks.map(it =>
-    `<button class="suggestion" data-id="${it.id}">
-       <span class="sug-name">${it.name}</span>
-       <span class="sug-cat">${it.cat}</span>
-     </button>`).join('');
-  box.classList.toggle('hidden', !picks.length);
-}
-
-/* ---------- 6. MINI-JEU : DIAMOND DASH ---------- */
-const cv = $('#game-canvas'), cx = cv.getContext('2d');
-const W = cv.width, H = cv.height, GROUND = H - 34;
-let game = null, rafId = 0;
-
-function newGame() {
-  return {
-    run: false, paused: false, t: 0, speed: 3,
-    p: { x: 50, y: GROUND - 26, vy: 0, jumps: 0, inv: 0 },
-    obs: [], gems: [], score: 0, gemsN: 0, lives: 3
+function renderCatalog(cat,pageSel,items){
+  const page = $(pageSel);
+  const titles = { mobs:"👾 Bestiaire complet", armes:"⚔️ Armes, outils & armures",
+    potions:"🧪 Grimoire des potions", blocs:"🧱 Blocs", biomes:"🌍 Biomes" };
+  page.innerHTML = `<h2 class="page-title">${titles[cat]}
+    <small>${items.length} fiches · clique sur une carte pour tous les détails</small></h2>
+    <div class="toolbar">
+      <input type="search" placeholder="Filtrer dans cette catégorie…" aria-label="Filtre">
+      ${cat==="mobs"?`<button class="chip" data-f="hostile">Hostiles</button><button class="chip" data-f="passif">Passifs</button><button class="chip" data-f="boss">Boss</button>`:""}
+      ${cat==="potions"?`<button class="chip" data-f="positive">Positives</button><button class="chip" data-f="negative">Négatives</button><button class="chip" data-f="special">Spéciales</button>`:""}
+      ${cat==="armes"?`<button class="chip" data-f="outil">Outils</button><button class="chip" data-f="armure">Armures</button><button class="chip" data-f="spéciale">Spéciales</button>`:""}
+    </div><div class="grid"></div>`;
+  const grid = page.querySelector(".grid");
+  const input = page.querySelector("input");
+  let filter = null;
+  const paint = ()=>{
+    const q = norm(input.value.trim());
+    const list = items.filter(o=>(!filter||o.t===filter) && (!q||norm(o.n).includes(q)||(o.b&&norm(o.b).includes(q))));
+    grid.innerHTML = list.length?list.map(o=>cardHTML(o,cat)).join(""):`<p class="empty">Aucune fiche trouvée… mais elle existe sûrement dans le Nether.</p>`;
   };
-}
-function hit(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
-function hud() {
-  $('#hud-score').textContent = '💎 ' + game.gemsN;
-  $('#hud-lives').textContent = '❤'.repeat(Math.max(0, game.lives)) + '·'.repeat(3 - Math.max(0, game.lives));
-  $('#hud-best').textContent = '🏆 Record : ' + (localStorage.getItem('mcd-best') || 0);
-}
-function startGame() {
-  game = newGame();
-  game.run = true;
-  $('#game-start').classList.add('hidden');
-  $('#game-over').classList.add('hidden');
-  hud();
-  cancelAnimationFrame(rafId);
-  loop();
-  toast('C\'est parti ! Espace = sauter, double saut possible !');
-}
-function endGame() {
-  game.run = false;
-  sfx.over();
-  const best = Math.max(Number(localStorage.getItem('mcd-best') || 0), Math.floor(game.score));
-  localStorage.setItem('mcd-best', best);
-  $('#go-score').textContent = 'Score : ' + Math.floor(game.score) + ' • 💎 ' + game.gemsN + ' diamants';
-  $('#game-over').classList.remove('hidden');
-  $('#game-start').classList.remove('hidden');
-  hud();
-}
-function jump() {
-  if (!game || !game.run || game.paused) return;
-  const p = game.p;
-  if (p.jumps < 2) { p.vy = p.jumps ? -10 : -11.5; p.jumps++; sfx.jump(); }
-}
-function togglePause() {
-  if (!game || !game.run) return;
-  game.paused = !game.paused;
-  toast(game.paused ? 'Pause…' : 'Reprise !');
-}
-function stopGame() { if (game) { game.run = false; cancelAnimationFrame(rafId); } }
-
-function step() {
-  const g = game;
-  if (g.paused) return;
-  g.t++;
-  g.speed = 3 + Math.min(4, g.score / 150);
-  const p = g.p;
-  p.vy += 0.55;
-  p.y += p.vy;
-  if (p.y >= GROUND - 26) { p.y = GROUND - 26; p.vy = 0; p.jumps = 0; }
-  if (g.t % Math.max(50, Math.round(110 - g.speed * 9)) === 0) g.obs.push({ x: W + 20, w: 22, h: 26 });
-  if (Math.floor(g.score) > 40 && g.t % 130 === 0) g.obs.push({ x: W + 20, y: 55 + Math.random() * 95, w: 26, h: 12, fly: true, vx: g.speed + 1.4 });
-  if (g.t % 95 === 0) g.gems.push({ x: W + 20, y: GROUND - 55 - Math.random() * 95, w: 16, h: 16 });
-  g.obs.forEach(o => o.x -= (o.vx || g.speed));
-  g.gems.forEach(o => o.x -= g.speed);
-  g.obs = g.obs.filter(o => o.x + o.w > -10);
-  g.gems = g.gems.filter(o => o.x > -10);
-  if (p.inv > 0) p.inv--;
-  g.score += 0.1;
-  const pb = { x: p.x, y: p.y, w: 22, h: 26 };
-  for (const o of g.obs) {
-    const ob = o.fly ? { x: o.x, y: o.y, w: o.w, h: o.h } : { x: o.x, y: GROUND - o.h, w: o.w, h: o.h };
-    if (p.inv === 0 && hit(pb, ob)) {
-      g.lives--; p.inv = 90; hud(); sfx.hit();
-      if (g.lives <= 0) { endGame(); return; }
-      toast('Aïe ! Encore ' + g.lives + ' vie(s)…');
-    }
-  }
-  g.gems = g.gems.filter(gm => {
-    if (hit(pb, gm)) { g.gemsN++; g.score += 5; hud(); sfx.gem(); return false; }
-    return true;
-  });
-}
-
-function draw() {
-  const g = game;
-  cx.clearRect(0, 0, W, H);
-  cx.fillStyle = '#1a1a2e';
-  cx.fillRect(0, 0, W, H);
-  cx.fillStyle = 'rgba(87, 166, 61, .12)';
-  for (let i = 0; i < 5; i++) cx.fillRect((i * 137 + (g.t * 0.4) % 137) % W, 40 + i * 18, 26, 8);
-  cx.fillStyle = '#2f6b22';
-  cx.fillRect(0, GROUND, W, H - GROUND);
-  cx.fillStyle = '#8a5a2b';
-  for (let x = -(g.t * g.speed % 24); x < W; x += 24) cx.fillRect(x, GROUND + 12, 10, 6);
-  g.gems.forEach(gm => {
-    cx.fillStyle = '#4ee3e3';
-    cx.beginPath();
-    cx.moveTo(gm.x + 8, gm.y);
-    cx.lineTo(gm.x + 16, gm.y + 6);
-    cx.lineTo(gm.x + 8, gm.y + 16);
-    cx.lineTo(gm.x, gm.y + 6);
-    cx.closePath();
-    cx.fill();
-  });
-  g.obs.forEach(o => {
-    if (o.fly) {
-      cx.fillStyle = '#5a5f7c';
-      cx.fillRect(o.x, o.y, o.w, o.h);
-      cx.fillStyle = '#23232b';
-      cx.fillRect(o.x - 7, o.y + (Math.floor(g.t / 6) % 2 ? -3 : 2), 8, 6);
-      cx.fillRect(o.x + o.w - 1, o.y + (Math.floor(g.t / 6) % 2 ? 2 : -3), 8, 6);
-      return;
-    }
-    cx.fillStyle = '#3ecf6f';
-    cx.fillRect(o.x, GROUND - o.h, o.w, o.h);
-    cx.fillStyle = '#0f0f12';
-    cx.fillRect(o.x + 4, GROUND - o.h + 6, 4, 5);
-    cx.fillRect(o.x + 14, GROUND - o.h + 6, 4, 5);
-    cx.fillRect(o.x + 9, GROUND - o.h + 14, 4, 6);
-  });
-  const p = g.p;
-  if (p.inv === 0 || Math.floor(g.t / 4) % 2 === 0) {
-    cx.fillStyle = '#57a63d';
-    cx.fillRect(p.x, p.y, 22, 26);
-    cx.fillStyle = '#0f0f12';
-    cx.fillRect(p.x + 4, p.y + 7, 4, 4);
-    cx.fillRect(p.x + 14, p.y + 7, 4, 4);
-  }
-  if (g.paused) {
-    cx.fillStyle = 'rgba(13, 14, 20, .7)';
-    cx.fillRect(0, 0, W, H);
-    cx.fillStyle = '#4ee3e3';
-    cx.font = "16px 'Press Start 2P', monospace";
-    cx.textAlign = 'center';
-    cx.fillText('PAUSE', W / 2, H / 2);
-  }
-}
-
-function loop() {
-  rafId = requestAnimationFrame(loop);
-  if (!game || !game.run) { cancelAnimationFrame(rafId); return; }
-  step();
-  draw();
-}
-
-/* ---------- 7. ÉVÉNEMENTS ---------- */
-function bindTabs() {
-  $('#tabs').addEventListener('click', e => {
-    const tab = e.target.closest('.tab');
-    if (!tab) return;
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
-    const jeu = tab.dataset.cat === 'jeu';
-    $('#game-section').classList.toggle('hidden', !jeu);
-    $('#browser').classList.toggle('hidden', jeu);
-    if (jeu) { stopGame(); $('#game-start').classList.remove('hidden'); $('#game-over').classList.add('hidden'); }
-    else { state.cat = tab.dataset.cat; state.sub = null; render(); }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
-}
-function bindSubs() {
-  $('#subfilter-bar').addEventListener('click', e => {
-    const chip = e.target.closest('.chip');
-    if (!chip) return;
-    if (chip.classList.contains('random')) {
-      const list = DATABASE.filter(it => it.cat === state.cat);
-      const pick = list[Math.floor(Math.random() * list.length)];
-      openModal(pick);
-      toast('Fiche aléatoire : ' + pick.name + ' !');
-      return;
-    }
-    state.sub = state.sub === chip.dataset.sub ? null : chip.dataset.sub;
-    render();
-  });
-}
-function bindSearch() {
-  const input = $('#search-input');
-  input.addEventListener('input', () => {
-    state.q = input.value.trim();
-    $('#search-clear').classList.toggle('hidden', !state.q);
-    render();
-    showSuggestions();
-  });
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { input.value = ''; input.dispatchEvent(new Event('input')); input.blur(); }
-    if (e.key === 'Enter') {
-      const first = $('#search-suggestions .suggestion');
-      if (first) { first.click(); }
-    }
-  });
-  $('#search-suggestions').addEventListener('mousedown', e => {
-    const sug = e.target.closest('.suggestion');
-    if (!sug) return;
-    e.preventDefault();
-    openModal(DATABASE.find(it => it.id === sug.dataset.id));
-    $('#search-suggestions').classList.add('hidden');
-  });
-  $('#search-clear').addEventListener('click', () => {
-    input.value = '';
-    input.dispatchEvent(new Event('input'));
-    input.focus();
-  });
-  document.querySelectorAll('.hint-chip').forEach(chip => chip.addEventListener('click', () => {
-    input.value = chip.dataset.q;
-    input.dispatchEvent(new Event('input'));
-    input.focus();
+  input.addEventListener("input",paint);
+  page.querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
+    page.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
+    ch.classList.add("active"); filter = ch.dataset.f; paint();
   }));
+  paint();
 }
-function bindGrid() {
-  const grid = $('#cards-grid');
-  grid.addEventListener('click', e => {
-    const card = e.target.closest('.card');
-    if (!card) return;
-    const item = DATABASE.find(it => it.id === card.dataset.id);
-    if (e.target.closest('.fav-btn')) {
-      const i = state.favs.indexOf(item.id);
-      if (i >= 0) { state.favs.splice(i, 1); toast('Retiré des favoris.'); }
-      else { state.favs.push(item.id); toast('★ ' + item.name + ' ajouté aux favoris !'); }
-      localStorage.setItem('mcd-favs', JSON.stringify(state.favs));
-      e.target.closest('.fav-btn').classList.toggle('on');
-      const favEl = $('#count-fav');
-      if (favEl) favEl.textContent = state.favs.length;
-      if (state.cat === 'fav') render();
-      return;
-    }
-    openModal(item);
-  });
-  grid.addEventListener('keydown', e => {
-    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('card')) {
-      e.preventDefault();
-      openModal(DATABASE.find(it => it.id === e.target.dataset.id));
-    }
-  });
-  $('#reset-filters').addEventListener('click', () => {
-    state.q = ''; state.sub = null;
-    $('#search-input').value = '';
-    $('#search-clear').classList.add('hidden');
-    render();
-    toast('Filtres réinitialisés.');
-  });
+renderCatalog("mobs","#page-mobs",MOBS);
+renderCatalog("armes","#page-armes",TOUTES_ARMES);
+renderCatalog("potions","#page-potions",POTIONS);
+renderCatalog("blocs","#page-blocs",BLOCS);
+renderCatalog("biomes","#page-biomes",BIOMES);
+
+/* ---------- Modal fiche ---------- */
+function openFiche(cat,k){
+  let o;
+  if(cat==="mobs") o = MOBS.find(x=>slug(x.n)===k);
+  else if(cat==="armes") o = TOUTES_ARMES.find(x=>slug(x.n)===k);
+  else if(cat==="potions") o = POTIONS.find(x=>slug(x.n)===k);
+  else if(cat==="blocs") o = BLOCS.find(x=>slug(x.n)===k);
+  else if(cat==="biomes") o = BIOMES.find(x=>slug(x.n)===k);
+  else if(cat==="recettes") o = RECETTES.find(x=>x.key===k||slug(x.n)===k);
+  else if(cat==="commandes") o = COMMANDES.find(x=>slug(x.n)===k);
+  if(!o) return;
+  const favKey = cat+"/"+(o.key||k);
+  const stats = [];
+  if(o.t) stats.push([o.t.toUpperCase(),"Type"]);
+  if(o.hp!==undefined) stats.push([o.hp,"PV / Points"]);
+  if(o.d!==undefined&&cat!=="potions") stats.push([o.d,"Dégâts"]);
+  if(o.dur!==undefined) stats.push([o.dur,"Durabilité"]);
+  if(o.o) stats.push([o.o,"Résultat"]);
+  if(o.q) stats.push([o.q,"Quantité"]);
+  if(o.e) stats.push([o.e,"Effet"]);
+  if(o.d!==undefined&&cat==="potions") stats.push([o.d,"Durée"]);
+  if(o.dim) stats.push([o.dim,"Dimension"]);
+  if(o.cl) stats.push([o.cl,"Climat"]);
+  if(o.w) stats.push([o.w,"Où le trouver"]);
+  if(o.b&&cat!=="mobs"&&cat!=="potions") stats.push([o.b,"Obtention"]);
+  if(o.b&&cat==="potions") stats.push([o.b,"Ingrédient"]);
+  if(o.b&&cat==="mobs") stats.push([o.b,"Habitat"]);
+  if(o.l) stats.push([o.l,"Butin"]);
+  if(o.m) stats.push([Object.values(o.m).join(", "),"Ingrédients"]);
+  $("#modal-content").innerHTML = `
+    <div class="m-ico">${o.i||"🧱"}</div>
+    <h2 id="modal-title">${o.n}</h2>
+    <div class="stat-grid">${stats.map(([v,l])=>`<div class="sg"><b>${v}</b><span>${l}</span></div>`).join("")}</div>
+    ${o.desc?`<p>${o.desc}</p>`:""}
+    ${o.d&&cat==="potions"?`<div class="stat-grid"><div class="sg"><b>${o.d}</b><span>Durée</span></div><div class="sg"><b>${o.ing}</b><span>Ingrédient clé</span></div></div>`:""}
+    ${o.s?`<div class="tip">💡 ${o.s}</div>`:""}
+    ${o.m?`<div class="syn">${o.g.map(r=>`<div>${r.replace(/ /g,"·")||"(vide)"}</div>`).join("")}</div>`:""}
+    <button class="btn btn-green" style="margin-top:16px" id="modal-fav">${isFav(favKey)?"★ Retirer des favoris":"☆ Ajouter aux favoris"}</button>
+    <p class="share-hint">Lien direct : ${location.origin+location.pathname}?fiche=${k}</p>`;
+  const m = $("#modal"); m.hidden = false;
+  $("#modal-fav").onclick = ()=>{ toggleFav(favKey); openFiche(cat,k); updateFavBtns(); };
+  $("#modal-x").focus();
 }
-function bindModal() {
-  $('#modal-close').addEventListener('click', closeModal);
-  $('#modal-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-}
-function bindGame() {
-  $('#game-start').addEventListener('click', startGame);
-  $('#game-restart').addEventListener('click', startGame);
-  cv.addEventListener('mousedown', e => { e.preventDefault(); jump(); });
-  cv.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
-  $('#game-jump-mobile').addEventListener('click', jump);
-  $('#game-mute').addEventListener('click', () => {
-    muted = !muted;
-    localStorage.setItem('mcd-mute', muted ? '1' : '0');
-    $('#game-mute').textContent = muted ? '\ud83d\udd07' : '\ud83d\udd0a';
-  });
-  document.addEventListener('keydown', e => {
-    const jeuVisible = !$('#game-section').classList.contains('hidden');
-    if (!jeuVisible) return;
-    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
-    if (e.code === 'KeyP') togglePause();
-  });
+$("#modal-x").addEventListener("click",()=>{ $("#modal").hidden = true; });
+$("#modal").addEventListener("click",e=>{ if(e.target.id==="modal") $("#modal").hidden = true; });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modal").hidden = true; });
+document.addEventListener("click",e=>{
+  const c = e.target.closest("[data-open]");
+  if(c && !e.target.closest(".fav-btn")) openFiche(c.dataset.open,c.dataset.slug);
+});
+document.addEventListener("keydown",e=>{
+  const c = e.target.closest?.("[data-open]");
+  if(c && (e.key==="Enter"||e.key===" ") && !e.target.closest(".fav-btn")){ e.preventDefault(); openFiche(c.dataset.open,c.dataset.slug); }
+});
+document.addEventListener("click",e=>{
+  const f = e.target.closest("[data-fav]");
+  if(f){ e.stopPropagation(); toggleFav(f.dataset.fav); f.classList.toggle("on",isFav(f.dataset.fav)); }
+});
+function updateFavBtns(){ $$(".fav-btn").forEach(b=>b.classList.toggle("on",isFav(b.dataset.fav))); }
+
+/* ---------- FAVORIS ---------- */
+function renderFavoris(){
+  const page = $("#page-favoris");
+  const favs = CATALOGUE.filter(c=>isFav((c._cat.toLowerCase().split(" ")[0])+"/"+c._slug));
+  page.innerHTML = `<h2 class="page-title">⭐ Mes favoris<small>${favs.length} fiche(s) en étoile</small></h2>`+
+    (favs.length?`<div class="grid">${favs.map(c=>cardHTML(c,c._cat.toLowerCase().split(" ")[0])).join("")}</div>`
+      :`<p class="empty">Aucun favori pour l'instant. Clique sur l'étoile d'une fiche ! ⭐</p>`);
 }
 
-/* ---------- 8. INIT ---------- */
-updateCounts();
-bindTabs();
-bindSubs();
-bindSearch();
-bindGrid();
-bindModal();
-bindGame();
-render();
-
-/* ---------- 9. CUBE 3D ---------- */
-function cube3D(it, size = 92) {
-  const svg = svgFromGrid(it.pix, it.pal);
-  const face = (cls, filter) => `<i class="cf ${cls}" style="background-image:url('${svg}');${filter ? 'filter:' + filter : ''}"></i>`;
-  return `<div class="cube3d" style="--s:${size}px">` +
-    face('f1') + face('f2', 'brightness(.78)') + face('f3', 'brightness(1.1)') +
-    face('f4', 'brightness(.62)') + face('f5', 'brightness(.9)') + face('f6', 'brightness(.7)') +
-    `</div>`;
+/* ---------- CRAFT + COMMANDES ---------- */
+let selRecipe = RECETTES[0];
+let cmdMode = "java";
+function renderCraft(){
+  const page = $("#page-craft");
+  page.innerHTML = `
+   <h2 class="page-title">🛠️ Table de craft — tout ce qui est craftable
+     <small>${RECETTES.length} recettes · clique une recette pour la voir en 3×3</small></h2>
+   <div class="craft-layout">
+    <div class="craft-panel" id="sec-craft">
+      <h3 style="font-family:var(--px);font-size:11px;color:var(--gold);margin-bottom:8px">CRAFTING TABLE 3×3</h3>
+      <div class="craft-table" id="craft-grid"></div>
+      <div class="arrow-out">⬇️</div>
+      <div class="craft-table"><div class="slot result-slot" id="craft-out"></div></div>
+      <div class="recipe-meta" id="recipe-meta"></div>
+    </div>
+    <div>
+      <div class="toolbar">
+        <input type="search" id="craft-search" placeholder="🔍 Chercher une recette (ex : red, épée, or, slime…)" aria-label="Chercher une recette">
+      </div>
+      <div class="tier-strip" id="craft-cats"></div>
+      <div id="craft-list"></div>
+    </div>
+   </div>
+   <div class="cmd-section" id="sec-commandes">
+    <h2 class="page-title">💻 Bloc de commandes — simulateur Java &amp; Bedrock</h2>
+    <div class="cmdblock">
+      <div class="mode-switch" role="group" aria-label="Mode d'édition">
+        <button id="mode-java" class="on-java">☕ JAVA</button>
+        <button id="mode-bedrock">📱 BEDROCK</button>
+      </div>
+      <div class="cmd-input">
+        <span class="cb-prompt">&gt;</span>
+        <input id="cmd-input" type="text" placeholder="/gamemode creative" aria-label="Tape une commande" list="cmd-suggestions">
+        <button class="btn btn-green" id="cmd-run">Exécuter ⏎</button>
+      </div>
+      <datalist id="cmd-suggestions">${COMMANDES.map(c=>`<option value="/${c.n}">`).join("")}</datalist>
+      <div class="cmd-console" id="cmd-console" aria-live="polite"></div>
+      <p class="cmd-hint">🎮 Simulateur pédagogique : le résultat reflète ce que dit le jeu. Pour du vrai, colle la commande dans le tchat ou un vrai bloc de commandes en jeu !</p>
+    </div>
+    <div class="toolbar" style="margin-top:20px">
+      <input type="search" id="cmd-search" placeholder="🔍 Chercher une commande (ex : tp, summon, gamerule)" aria-label="Chercher une commande">
+    </div>
+    <div class="cmd-list" id="cmd-list"></div>
+   </div>`;
+  paintRecipe(); paintCraftList(); paintCmdList();
+  $("#craft-search").addEventListener("input",paintCraftList);
+  $("#cmd-search").addEventListener("input",paintCmdList);
+  $("#cmd-run").addEventListener("click",runCommand);
+  $("#cmd-input").addEventListener("keydown",e=>{ if(e.key==="Enter") runCommand(); });
+  $("#mode-java").addEventListener("click",()=>setCmdMode("java"));
+  $("#mode-bedrock").addEventListener("click",()=>setCmdMode("bedrock"));
+  setCmdMode("java");
 }
-
-/* ---------- 10. SONS PIXEL-ART (WebAudio, zéro fichier) ---------- */
-let muted = localStorage.getItem('mcd-mute') === '1';
-let actx = null;
-function beep(freq, dur, type = 'square', vol = .15, slide = 0) {
-  if (muted) return;
-  try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(freq, actx.currentTime);
-    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), actx.currentTime + dur);
-    g.gain.setValueAtTime(vol, actx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
-    o.connect(g).connect(actx.destination);
-    o.start();
-    o.stop(actx.currentTime + dur);
-  } catch (e) { /* audio indisponible */ }
+function paintRecipe(){
+  const r = selRecipe;
+  const g = ["","",""];
+  r.g.forEach((row,i)=>g[i]=(row||"").padEnd(3," ").slice(0,3));
+  $("#craft-grid").innerHTML = [0,1,2].map(y=>[0,1,2].map(x=>{
+    const ch = (g[y]||" ")[x];
+    if(ch===" "||ch===undefined) return `<div class="slot"></div>`;
+    const name = r.m[ch]||ch;
+    const ico = ICON_MAP[name]||ICON_MAP[norm(name)]||"📦";
+    return `<div class="slot filled" title="${name}">${ico}<span>${name}</span></div>`;
+  }).join("")).join("");
+  $("#craft-out").innerHTML = `<div style="font-size:26px">${ICON_MAP[norm(r.n)]||ICON_MAP[r.n]||"🎁"}</div><span style="font-size:10px;color:var(--diamond)">${r.n}</span>`;
+  $("#recipe-meta").innerHTML = `<b>${r.n}</b> · ${r.c}<br>Donne : ${r.o}`;
 }
-const sfx = {
-  jump: () => beep(300, .12, 'square', .1, 260),
-  gem: () => { beep(880, .09, 'sine', .16); setTimeout(() => beep(1320, .12, 'sine', .13), 60); },
-  hit: () => beep(170, .25, 'sawtooth', .18, -90),
-  over: () => { beep(220, .2, 'square', .13); setTimeout(() => beep(150, .35, 'square', .13), 210); }
+const ICON_MAP = {
+ "planches":"🟫","bâton":"🥢","cobblestone":"🪨","pierre":"⬜","charbon":"⚫","lingot de fer":"⚙️",
+ "lingot d'or":"🟨","pépite d'or":"🟡","pépite de fer":"⚪","diamant":"💎","lingot de netherite":"🟧",
+ "redstone":"🔴","poudre de redstone":"🔴","laine":"🐑","ficelle":"🧵","blé":"🌾","lait":"🥛",
+ "sucre":"🍬","œuf":"🥚","pomme":"🍎","carotte":"🥕","brique d'argile":"🧱","verre":"🪟",
+ "glowstone":"✨","quartz":"⚪","sable":"🏖️","poudre à canon":"💨","torche":"🕯️","coffre":"📦",
+ "arc":"🏹","slime":"🟢","boule de slime":"🟢","perle de l'end":"🔮","poudre de blaze":"🔥",
+ "bâton de blaze":"🔥","obsidienne":"🟪","cuir":"🟤","papier":"📄","plume":"🪶","silex":"🪨",
+ "silex (item)":"🪨","livre":"📖","crochet":"🪝","noyau lourd":"🪨","breeze rod":"🌪️",
+ "netherbrick (item)":"🧱","bloc d'or":"🟨","bloc de fer":"⚙️","champ. rouge":"🍄","champ. brun":"🍄",
+ "bol":"🥣","fèves de cacao":"🟤","émeraude":"💚","boussole":"🧭","netherite":"🟧"
 };
-
-/* ---------- 11. JARVIS — ASSISTANT 100% MINECRAFT ---------- */
-const JARVIS_FAQ = [
-  { k: ['apprivoiser', 'loup', 'chien'], a: "🐺 **Le loup** s'apprivoise avec des **os** (droppés par les squelettes) : clic droit jusqu'à l'apparition de cœurs. Il porte ensuite un collier, attaque tes cibles et se téléporte vers toi. Les loups sauvages chassent naturellement les squelettes !" },
-  { k: ['portail', 'obsidienne'], a: "🌀 **Le portail du Nether** : cadre en **obsidienne** (née de l'eau sur la lave), 4 blocs de large minimum, et allume l'intérieur avec un **briquet**. Il te faut 10 blocs d'obsidienne pour le cadre standard 4×5." },
-  { k: ['warden', 'deep dark'], a: "👁️ **Le Warden** est aveugle : il chasse aux **vibrations**. Reste immobile, rampe (accroupi sur de la laine), ne jette rien ! Même en netherite il one-shot en normal : la fuite est une stratégie. Les flèches sur un carillon de sculk l'attirent ailleurs." },
-  { k: ['diamant', 'couche', 'miner'], a: "💎 **Les diamants** se trouvent entre les **couches -59 et 16** (le max étant vers -59). Mine avec une pioche en **fer minimum**, évite de creuser droit devant toi (lave !) et utilise la méthode en spirale ou les veines d'argile profonde." },
-  { k: ['elytra', 'voler'], a: "🪽 **L'elytra** se trouve dans les **vaisseaux de l'End** (ville de l'End, accessible par portail de passerelle après avoir vaincu le dragon). Répare-la avec des **membranes de phantom** ou à l'enclume avec de l'expérience. Combine-la avec des fusées de feu d'artifice pour voler !" },
-  { k: ['totem'], a: "🪬 **Le totem d'immortalité** est lâché par les **évocateurs** (manoirs de la forêt et raids). Tiens-le en **main principale ou secondaire** : si tu meurs, il te ressuscite avec 1 cœur et des effets de régénération !" },
-  { k: ['raid', 'présage', 'mauvais'], a: "⚔️ **Le raid** se déclenche en tuant un **capitaine de pillards** (bannière sur la tête) : tu obtiens « Mauvais Présage ». Entre ensuite dans un village… et défends-le ! Récompense : la **Héros du Village** (réductions des villageois)." },
-  { k: ['enchant', 'biblioth', 'mesa'], a: "📖 **La table d'enchantement** se renforce avec des **bibliothèques** : 15 autour de la table = enchantements niveau 30 max. Il te faut du **lapis-lazuli** et de l'XP. Une pêche avec canne enchantée Luck of the Sea est aussi un bon début !" },
-  { k: ['netherite', 'debris', 'ancient'], a: "🔥 **La netherite** vient des **débris anciens** (ancient debris) vers la **couche 15** du Nether. 4 débris + 4 lingots d'or = 1 lingot de netherite, à combiner avec ton équipement en diamant sur une **table de forge** (gabarit d'amélioration dans les bastions)." },
-  { k: ['dragon', 'end', 'cristal'], a: "🐲 **Le dragon de l'End** se soigne grâce aux **cristaux de l'End** au sommet des piliers d'obsidienne : détruis-les d'abord (certains sont protégés par des cages). Évite son souffle, frappe sa tête, et récupère l'**œuf de dragon** en le poussant avec un piston !" },
-  { k: ['potion', 'alambic'], a: "🧪 **L'alchimie** : un **alambic**, du **nether wart** (forteresses du Nether) + de l'eau donne une potion banale, puis ajoute l'ingrédient principal (sucre = rapidité, lactose? non : crème de magma = résistance au feu…). La poudre à canon en fait une potion jetable, la poudre de glowstone allonge la durée." },
-  { k: ['slime', 'chunk'], a: "🟢 **Les slimes** apparaissent dans les **« chunks à slime »** (environ 10 % des chunks, sous la couche 40) ou dans les **marais** la nuit. La ferme à slime classique : creuse des salles éclairées sous Y30 et attend le « boing » !" },
-  { k: ['fer', 'golem', 'ferme'], a: "⚙️ **La ferme à fer** : les golems apparaissent près des villageois qui dorment/working. Une plateforme de 44 villageois maltraités par des zombies = golems qui tombent dans la lave… Rendement : ~400 fer/heure pour une ferme simple !" },
-  { k: ['villageois', 'zombie', 'rabais'], a: "💊 **Le zombie villageois** se guérit : **potion de faiblesse** (jetée) + **pomme dorée**. Après 3-5 minutes, il redevient villageois avec des **réductions permanentes** sur ses échanges. La base de tout commerce d'émeraudes rentable !" },
-  { k: ['record', 'score', 'jeu', 'jouer', 'diamond dash'], a: "🎮 **Diamond Dash** : Espace/↑/clic = sauter (double saut possible !), P = pause. Chaque diamant 💎 = 5 points, le temps fait monter le score. Après 40 points, attention aux **phantoms** qui volent ! Ton record est sauvegardé localement." },
-  { k: ['fiche', 'dictionnaire', 'site', 'comment', 'marche', 'favoris'], a: "🔎 **Le site** : 157 fiches réparties en 5 onglets (Mobs, Armes, Blocs, Potions, Biomes) + l'onglet ★ Favoris. Tape dans la recherche intelligente (essaie « dr » → Dragon), clique sur une carte pour la fiche complète, et ★ pour mettre en favori. Chaque fiche a son cube 3D dans le détail !" },
-  { k: ['bonjour', 'salut', 'coucou', 'hello', 'qui es'], a: "🤖 Salut, je suis **Jarvis**, l'assistant du Minecraft Dictionnary ! Je réponds uniquement aux questions sur Minecraft : les 157 fiches du site, le craft, les mobs, le Nether, l'End… Pose ta question ou clique sur une suggestion !" }
+const ICON_LIST = [
+ ["Épée","🗡️"],["Pioche","⛏️"],["Hache","🪓"],["Pelle","🥄"],["Houe","🪝"],
+ ["Casque","⛑️"],["Plastron","🛡️"],["Jambières","👖"],["Bottes","🥾"]
 ];
-function jarvisAnswer(raw) {
-  const q = norm(raw);
-  if (!q) return "Pose-moi une question sur Minecraft ! 💎";
-  if (/^(bonjour|salut|coucou|hello|hey|yo|qui es|tu es qui)/.test(q)) return JARVIS_FAQ[JARVIS_FAQ.length - 1].a;
-  const found = DATABASE
-    .filter(it => q.includes(norm(it.name)))
-    .sort((a, b) => b.name.length - a.name.length);
-  if (found.length) {
-    const it = found[0];
-    const rar = rarityOf(it.rarity);
-    const statsTxt = it.stats.map(s => `${s.l} ${s.v}/100`).join(' • ');
-    return `**${it.name}** (${it.cat} ${it.sub}, rareté : ${rar})\n\n${it.desc}\n\n📊 ${statsTxt}\n🏷️ ${it.tags.join(', ')}`;
-  }
-  const compar = /(le )?(plus|meilleure?)\b/.test(q);
-  if (compar && /(dangereux|fort|puissant|dur|difficile|boss)/.test(q)) {
-    const top = DATABASE.filter(i => i.cat === 'mob').sort((a, b) => b.stats[0].v - a.stats[0].v).slice(0, 3);
-    return "☠️ Les **3 mobs les plus dangereux** du dictionnaire :\n\n" +
-      top.map((m, i) => `${i + 1}. **${m.name}** — Danger ${m.stats[0].v}/100`).join('\n') +
-      "\n\nTous les trois valent 100 : dragon, Wither et Warden… bonne chance !";
-  }
-  if (compar && /(arme|outil|epee|pioche|hache|epée)/.test(q)) {
-    const top = DATABASE.filter(i => i.cat === 'arme').sort((a, b) => b.stats[0].v - a.stats[0].v).slice(0, 3);
-    return "⚔️ Le **top des armes** (dégâts) :\n\n" +
-      top.map((m, i) => `${i + 1}. **${m.name}** — Dégâts ${m.stats[0].v}/100`).join('\n');
-  }
-  for (const entry of JARVIS_FAQ) {
-    if (entry.k.some(k => q.includes(k))) return entry.a;
-  }
-  if (/(minecraft|mob|bloc|potion|biome|arme|outil|craft|miner|nether|end|overworld|redstone|cuir|laine|fer|or|diamant|zombie|creeper| XP |esp|biome| porte |manger|nourriture|maison|base)/.test(' ' + q + ' ')) {
-    return "Bonne question ! 🤔 Je connais parfaitement les **157 fiches** du dictionnaire : mobs, armes, blocs, potions et biomes. Reformule avec un nom précis (ex. « Creeper », « Nether », « potion de soin ») ou demande « quel est le mob le plus dangereux ? »";
-  }
-  return "🚫 Désolé, je suis **100 % Minecraft** ! Je ne réponds qu'aux questions sur le jeu : mobs, armes, blocs, potions, biomes, craft… Essaie « comment apprivoiser un loup ? » ou « où trouver des diamants ? » 💎";
+TIERS.forEach(t=>ICON_LIST.forEach(([n,i])=>{ ICON_MAP[`${n.toLowerCase()} en ${t.n.toLowerCase()}`]=i; }));
+ICON_MAP["torche de redstone"]="🔴"; ICON_MAP["escaliers de pierre"]="🪜";
+function paintCraftList(){
+  const q = norm($("#craft-search").value.trim());
+  const cats = ["Toutes",...new Set(RECETTES.map(r=>r.c))];
+  const active = $("#craft-cats .chip.active")?.dataset.c || "Toutes";
+  $("#craft-cats").innerHTML = cats.map(c=>`<button class="chip ${c===active?"active":""}" data-c="${c}">${c}</button>`).join("");
+  $("#craft-cats").querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
+    $("#craft-cats").querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
+    ch.classList.add("active"); $("#craft-search").dataset.c = ch.dataset.c; paintCraftList();
+  }));
+  const catF = $("#craft-search").dataset.c || "Toutes";
+  const list = RECETTES.filter(r=>(catF==="Toutes"||r.c===catF)&&(!q||norm(r.n).includes(q)||norm(r.o).includes(q)||Object.values(r.m).some(m=>norm(m).includes(q))));
+  $("#craft-list").innerHTML = list.length?list.map(r=>`
+    <div class="recipe-row ${r===selRecipe?"sel":""}" data-r="${r.key}">
+      <div><span class="r-n">${ICON_MAP[r.n]||ICON_MAP[norm(r.n)]||"🎁"} ${r.n}</span>
+      <span class="r-c"> · ${r.c}</span></div><span class="recipe-count">×${r.q}</span>
+    </div>`).join(""):`<p class="empty">Aucune recette. Essaie « red » !</p>`;
+  $("#craft-list").querySelectorAll(".recipe-row").forEach(row=>row.addEventListener("click",()=>{
+    selRecipe = RECETTES.find(r=>r.key===row.dataset.r); paintRecipe(); paintCraftList();
+  }));
 }
-function jarvisAdd(role, text) {
-  const log = $('#jarvis-log');
-  const d = document.createElement('div');
-  d.className = 'jmsg ' + role;
-  if (role === 'bot') d.innerHTML = text; else d.textContent = text;
-  log.appendChild(d);
-  log.scrollTop = log.scrollHeight;
-  return d;
+function setCmdMode(m){
+  cmdMode = m;
+  $("#mode-java").classList.toggle("on-java",m==="java");
+  $("#mode-bedrock").classList.toggle("on-bedrock",m==="bedrock");
+  cmdLog(`<span class="sys">Mode ${m==="java"?"Java Edition ☕":"Bedrock Edition 📱"} activé. Les syntaxes affichées s'adaptent.</span>`,false);
+  paintCmdList();
 }
-function jarvisAsk(raw) {
-  jarvisAdd('user', raw);
-  const typing = jarvisAdd('bot typing', '…');
-  typing.textContent = '🤖 réfléchit…';
-  setTimeout(() => {
-    typing.classList.remove('typing');
-    typing.innerHTML = jarvisAnswer(raw);
-    const log = $('#jarvis-log');
-    log.scrollTop = log.scrollHeight;
-  }, 450);
+function cmdLog(html,keep){
+  const c = $("#cmd-console");
+  if(!keep) c.innerHTML = "";
+  c.insertAdjacentHTML("beforeend",`<span class="ln">${html}</span>`);
+  c.scrollTop = c.scrollHeight;
 }
-function bindJarvis() {
-  $('#jarvis-btn').addEventListener('click', () => {
-    const panel = $('#jarvis-panel');
-    panel.classList.toggle('hidden');
-    if (!panel.classList.contains('hidden')) {
-      if (!$('#jarvis-log').children.length) {
-        jarvisAdd('bot', "🤖 Bonjour ! Je suis <b>Jarvis</b>, l'assistant officiel du Minecraft Dictionnary.\n\nJe réponds <b>uniquement</b> aux questions sur Minecraft : les 157 fiches du site, le craft, les mobs, le Nether, l'End…\n\nQue veux-tu savoir ? 💎");
-      }
-      $('#jarvis-input').focus();
-    }
-  });
-  $('#jarvis-close').addEventListener('click', () => $('#jarvis-panel').classList.add('hidden'));
-  $('#jarvis-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const input = $('#jarvis-input');
-    const v = input.value.trim();
-    if (!v) return;
-    input.value = '';
-    jarvisAsk(v);
-  });
-  document.querySelectorAll('.jarvis-chip').forEach(chip => chip.addEventListener('click', () => {
-    if ($('#jarvis-panel').classList.contains('hidden')) $('#jarvis-btn').click();
-    jarvisAsk(chip.dataset.q);
+function runCommand(){
+  const raw = $("#cmd-input").value.trim();
+  if(!raw) return;
+  $("#cmd-input").value = "";
+  cmdLog(`<span class="sys">&gt; ${raw.replace(/</g,"&lt;")}</span>`,true);
+  if(!raw.startsWith("/")){ cmdLog(`<span class="warn">💬 Texte dans le tchat : &lt;Player&gt; ${raw.replace(/</g,"&lt;")}</span>`,true); return; }
+  const parts = raw.slice(1).split(/\s+/);
+  const verb = parts[0].toLowerCase();
+  const C = COMMANDES.find(c=>c.n===verb||c.n===raw.slice(1).split(" ")[0]);
+  if(!C){ cmdLog(`<span class="err">❌ Commande inconnue : « ${verb} ». Essaie /help ou clique une commande ci-dessous.</span>`,true); return; }
+  const j = parts.slice(1).join(" ");
+  const known = {
+    tp:()=>`✅ ${j||"@s"} a été téléporté. Retour au bercail !`,
+    teleport:()=>`✅ Téléportation effectuée.`,
+    gamemode:()=>{ const m=(j||"creative").toLowerCase();
+      const map={survival:"Survie",s:"Survie",creative:"Créatif",c:"Créatif",a:"Aventure",adventure:"Aventure",spectator:"Spectateur",sp:"Spectateur"};
+      return `✅ Le mode de jeu de @s a été mis à jour en ${map[m]||m}.`;},
+    give:()=>`✅ ${j?j:"Objet"} donné à @p. Il flotte dans l'inventaire ✨`,
+    summon:()=>`✅ Entité invoquée ${j?"("+j+")":""}. Elle apparaît dans un nuage de fumée blanche.`,
+    kill:()=>`⚠️ ${j||"@e"} éliminé. 0 entité ressentira le moindre doute.`,
+    effect:()=>`✅ Effet appliqué ${j?"("+j+")":""}. Les particules scintillent.`,
+    time:()=>`✅ L'heure du monde a été changée (${j||"set"}). Le soleil fait le fond du décor.`,
+    weather:()=>`✅ La météo devient : ${j||"clear"}. ${/thunder|orage/i.test(j)?"Éclairs au programme ⚡":""}`,
+    xp:()=>`✅ XP ajoutée. Niveau supérieur débloqué 🔔`,
+    experience:()=>`✅ XP ajoutée.`,
+    enchant:()=>`✅ Objet enchanté dans la main de @s. Scintillement violet garanti 🔮`,
+    setblock:()=>`✅ Bloc placé ${j?"("+j+")":""}.`,
+    fill:()=>`✅ Zone remplie. Compte les blocs : 32768 max !`,
+    clone:()=>`✅ Structure clonée. Ctrl+C / Ctrl+V, version cubique.`,
+    difficulty:()=>`✅ Difficulté réglée sur ${j||"normal"}. ${/hard/i.test(j)?"Bonne chance 😈":""}`,
+    say:()=>`📢 [Serveur] ${j||"…"}`,
+    me:()=>`* Player ${j||"…"}`,
+    seed:()=>`✅ Graine : 42-1337-666 (démo). copie-la pour reproduire ton monde.`,
+    clear:()=>`✅ Inventaire nettoyé. Adieu la chair putréfiée.`,
+    execute:()=>cmdMode==="java"?"✅ Commande exécutée dans le contexte donné. Puissance du datapack !":"⚠️ En Bedrock, la syntaxe est : /execute <cible> <x y z> <commande> (ancienne syntaxe !)",
+    locate:()=>`✅ Structure la plus proche trouvée à 247 blocs. Suis la flèche 🧭`,
+    spreadplayers:()=>`✅ Joueurs dispersés dans la zone. Que le meilleur gagne.`,
+    gamerule:()=>`✅ Règle du jeu modifiée : ${j||"(règle)"}. ${/keepinventory/i.test(j)?"Tu gardes ton stuff en mourant, malin !":""}`,
+    defaultgamemode:()=>`✅ Mode par défaut des nouveaux joueurs mis à jour.`,
+    particle:()=>`✅ Particules en gerbe. Effet pyrotechnique maîtrisé ✨`,
+    playsound:()=>`🔊 Son joué. Tourne ton volume… surprise.`,
+    title:()=>`✅ Titre affiché en grand à l'écran. Cinématique !`,
+    tellraw:()=>`✅ Message formaté envoyé ${cmdMode==="java"?"(JSON)":"(texte brut en Bedrock)"}.`,
+    testfor:()=>`✅ Joueur trouvé. (Bedrock uniquement : Java utilise /execute if entity)`,
+    ability:()=>`✅ Capacité accordée. Tu voles désormais 🕊️`,
+    structure:()=>`✅ Structure collée. Construction instantanée !`,
+    ride:()=>`✅ Monté à bord. Accroche-toi.`,
+    camerashake:()=>`🎥 Écran secoué. Les joueurs hurlent (de joie).`,
+    daylock:()=>`✅ Cycle jour/nuit gelé. Soleil éternel.`,
+    function:()=>`✅ Fonction exécutée : toutes les commandes du fichier ont tourné.`,
+    tag:()=>`✅ Étiquette appliquée à la cible.`,
+    scoreboard:()=>`✅ Scoreboard opérationnel. Les stats s'affichent.`,
+    team:()=>`✅ Équipe créée. (Java uniquement)`,
+    worldborder:()=>`✅ Frontière du monde fixée. Sortie interdite.`,
+    spectate:()=>`👁️ Vue spectateur attachée à l'entité.`,
+    help:()=>`📜 Liste des commandes affichée. Mais le plus simple : la liste ci-dessous !`,
+    list:()=>`✅ Joueurs en ligne : Player (1/20)`,
+    replaceitem:()=>`✅ Objet placé dans le slot indiqué.`
+  };
+  const fn = known[verb];
+  if(fn) cmdLog(`<span class="ok">${fn()}</span>`,true);
+  else cmdLog(`<span class="ok">✅ Commande « ${verb} » reconnue (${cmdMode==="java"?C.j:C.b}).</span>`,true);
+}
+function paintCmdList(){
+  const q = norm($("#cmd-search").value.trim());
+  const list = COMMANDES.filter(c=>!q||norm(c.n).includes(q)||norm(c.cat).includes(q)||norm(c.d).includes(q));
+  $("#cmd-list").innerHTML = list.length?list.map(c=>`
+    <button class="cmd-chip" data-cmd="${c.n}">
+      <span class="cc-n">/${c.n}</span><br><span class="cc-c">${c.cat}</span>
+    </button>`).join(""):`<p class="empty">Aucune commande trouvée.</p>`;
+  $("#cmd-list").querySelectorAll(".cmd-chip").forEach(b=>b.addEventListener("click",()=>{
+    const c = COMMANDES.find(x=>x.n===b.dataset.cmd);
+    const ex = c.e.replace(/'/g,"\\'");
+    $("#modal-content").innerHTML = `<div class="m-ico">💻</div><h2>/${c.n}</h2>
+      <div class="stat-grid"><div class="sg"><b>${esc(c.cat)}</b><span>Catégorie</span></div></div>
+      <p>${esc(c.d)}</p>
+      <div class="syn" style="margin-top:14px">
+        <div class="j"><b>☕ JAVA</b>${esc(c.j)}</div>
+        <div class="b"><b>📱 BEDROCK</b>${esc(c.b)}</div>
+      </div>
+      <div class="tip" style="margin-top:14px">Exemple : <code>${esc(c.e)}</code></div>
+      <button class="btn btn-green" style="margin-top:16px" id="modal-test" data-ex="${esc(c.e)}">▶️ Tester cette commande</button>`;
+    $("#modal").hidden = false;
+    $("#modal-test").addEventListener("click",function(){
+      $("#modal").hidden = true; $("#cmd-input").value = this.dataset.ex;
+      setTimeout(()=>$("#cmd-run").click(),100);
+    });
   }));
 }
 
-/* ---------- 12. INIT BONUS ---------- */
-bindJarvis();
-$('#game-mute').textContent = muted ? '🔇' : '🔊';
-{
-  const ficheParam = new URLSearchParams(location.search).get('fiche');
-  if (ficheParam) {
-    const it = DATABASE.find(i => i.id === ficheParam);
-    if (it) { openModal(it); toast('Fiche partagée : ' + it.name); }
-  }
-}
+/* ---------- Recherche globale ---------- */
+(function(){
+  const input = $("#global-search"), drop = $("#gs-drop");
+  const paint = ()=>{
+    const q = norm(input.value.trim());
+    if(q.length<2){ drop.hidden = true; return; }
+    let hits = CATALOGUE.filter(o=>norm(o.n).includes(q)||(o.b&&norm(o.b).includes(q))).slice(0,14);
+    if(q.startsWith("red")) hits = CATALOGUE.filter(o=>/redstone|red/.test(norm(o.n))||/redstone/i.test(o.b||"")||/redstone/i.test(o.d||"")).slice(0,14).concat(hits);
+    const seen = new Set(); hits = hits.filter(h=>!seen.has(h._cat+h._slug)&&seen.add(h._cat+h._slug)).slice(0,12);
+    drop.innerHTML = hits.length?hits.map(h=>`<a data-goto="${h._page}" data-cat="${h._cat.toLowerCase().split(" ")[0]}" data-slug="${h._slug}"><span class="gs-cat">${h._cat}</span> <b>${h.i||""} ${h.n}</b></a>`).join("")
+      :`<a>😬 Aucun résultat… essaie « creeper », « red », « tp »…</a>`;
+    drop.hidden = false;
+    drop.querySelectorAll("[data-goto]").forEach(a=>a.addEventListener("click",()=>{
+      drop.hidden = true; input.value = "";
+      showPage(a.dataset.goto);
+      if(a.dataset.goto==="craft" && a.dataset.cat==="recettes"){
+        selRecipe = RECETTES.find(r=>r.key===a.dataset.slug)||selRecipe; paintRecipe(); paintCraftList();
+      } else if(a.dataset.goto==="craft" && a.dataset.cat==="commandes"){
+        const c = COMMANDES.find(x=>x.n===a.dataset.slug);
+        if(c){ $("#cmd-input").value = c.e; setTimeout(()=>$("#cmd-run").click(),200); }
+      } else setTimeout(()=>openFiche(a.dataset.cat,a.dataset.slug),350);
+    }));
+  };
+  input.addEventListener("input",paint);
+  input.addEventListener("keydown",e=>{ if(e.key==="Escape") drop.hidden=true; });
+  document.addEventListener("click",e=>{ if(!e.target.closest(".gsearch")) drop.hidden = true; });
+})();
+
+/* ---------- Lien direct ?fiche= & burger ---------- */
+(function(){
+  const p = new URLSearchParams(location.search).get("fiche");
+  if(p){ const hit = CATALOGUE.find(c=>c._slug===p);
+    if(hit){ showPage(hit._page); setTimeout(()=>openFiche(hit._cat.toLowerCase().split(" ")[0],hit._slug),350); } }
+  $("#burger").addEventListener("click",()=>{
+    const t = $("#tabs"), open = t.classList.toggle("open");
+    $("#burger").setAttribute("aria-expanded",open);
+  });
+})();
+
+/* ---------- Favoris count + Creeper easter egg ---------- */
+saveFav();
+$("#creeper-btn").addEventListener("click",function(){
+  this.textContent = "💥 BOOM !"; this.classList.add("boom");
+  document.body.style.animation = "shake .5s";
+  setTimeout(()=>{ document.body.style.animation = ""; this.textContent = " Aw… respawn ?"; },700);
+  setTimeout(()=>{ this.textContent = " Creeper ?"; this.classList.remove("boom"); },2200);
+});

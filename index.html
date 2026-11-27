@@ -1,147 +1,97 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minecraft Dictionnary — Édition Ultime</title>
-  <meta name="description" content="Le dictionnaire Minecraft gratuit et complet : 157 fiches détaillées (mobs, armes, blocs, potions, biomes), recherche intelligente, favoris, mini-jeu Diamond Dash et Jarvis, l'assistant IA 100% Minecraft.">
-  <meta name="keywords" content="minecraft, dictionnaire minecraft, wiki minecraft, mobs minecraft, armes minecraft, blocs minecraft, potions minecraft, biomes minecraft, mini-jeu, creeper, warden">
-  <meta name="author" content="chartierclement69-crypto">
-  <meta name="theme-color" content="#0d0e14">
-  <link rel="canonical" href="https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Minecraft Dictionnary">
-  <meta property="og:title" content="Minecraft Dictionnary — Édition Ultime">
-  <meta property="og:description" content="157 fiches détaillées sur Minecraft : mobs, armes, blocs, potions, biomes + mini-jeu et assistant IA Jarvis. 100% gratuit.">
-  <meta property="og:url" content="https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/">
-  <meta property="og:image" content="https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/og-image.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Minecraft Dictionnary — Édition Ultime">
-  <meta name="twitter:description" content="157 fiches, recherche intelligente, mini-jeu et Jarvis l'assistant Minecraft. 100% gratuit.">
-  <meta name="twitter:image" content="https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/og-image.png">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%2357a63d'/%3E%3Crect x='1' y='2' width='2' height='2' fill='%230f0f12'/%3E%3Crect x='5' y='2' width='2' height='2' fill='%230f0f12'/%3E%3Crect x='2' y='5' width='4' height='2' fill='%230f0f12'/%3E%3C/svg%3E">
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "Minecraft Dictionnary — Édition Ultime",
-    "url": "https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/",
-    "description": "Dictionnaire Minecraft : 157 fiches (mobs, armes, blocs, potions, biomes), recherche intelligente, mini-jeu et assistant IA Jarvis.",
-    "inLanguage": "fr"
-  }
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minecraft Dictionnary — Édition ULTRA v2 : Mobs, Armes, Potions, Craft, Commandes</title>
+<meta name="description" content="Le dictionnaire Minecraft le plus complet du web : plus de 85 mobs, 50 armes et armures, 16 potions, 45 blocs, 24 biomes, 100 recettes de craft interactives et un simulateur de bloc de commandes Java et Bedrock. 100% gratuit.">
+<meta name="keywords" content="minecraft, dictionnaire minecraft, mobs, craft, recettes, commandes, potions, wiki, java, bedrock">
+<meta property="og:title" content="🟩 Minecraft Dictionnary — Édition ULTRA v2">
+<meta property="og:description" content="Tout Minecraft recensé : mobs, armes, potions, blocs, biomes, craft interactif et bloc de commandes Java/Bedrock.">
+<meta property="og:image" content="og-image.png">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🟩</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <a class="skip-link" href="#main">Aller au contenu</a>
+<a class="skip-link" href="#main">Aller au contenu</a>
+<div class="bg-fx" aria-hidden="true">
+  <div class="stars"></div>
+  <div class="floaters" id="floaters"></div>
+</div>
 
-  <header class="hero">
-    <div class="hero-bg" aria-hidden="true"></div>
-    <div class="hero-content">
-      <h1><span class="logo-cube" aria-hidden="true"></span>MINECRAFT DICTIONNARY</h1>
-      <p class="subtitle">Édition Ultime — <b id="total-count">…</b> fiches • Mobs • Armes • Blocs • Potions • Biomes • Mini-Jeu</p>
-
-      <div class="search-zone" role="search">
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input id="search-input" type="text" autocomplete="off" spellcheck="false"
-                 placeholder="Recherche intelligente : « dr » → Dragon, « pio » → Pioche…"
-                 aria-label="Recherche intelligente">
-          <button id="search-clear" class="hidden" aria-label="Effacer">✕</button>
-          <div id="search-suggestions" class="hidden" role="listbox"></div>
-        </div>
-        <div class="search-hints">
-          <span>Essaie :</span>
-          <button class="hint-chip" data-q="dr">dr → Dragon</button>
-          <button class="hint-chip" data-q="pio">pio → Pioche</button>
-          <button class="hint-chip" data-q="cr">cr → Creeper</button>
-          <button class="hint-chip" data-q="neth">neth → Nether</button>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <nav id="tabs" aria-label="Catégories">
-    <button class="tab cat-mob active" data-cat="mob">👹 Mobs <span class="count" id="count-mob"></span></button>
-    <button class="tab cat-arme" data-cat="arme">⚔️ Armes <span class="count" id="count-arme"></span></button>
-    <button class="tab cat-bloc" data-cat="bloc">🧱 Blocs <span class="count" id="count-bloc"></span></button>
-    <button class="tab cat-potion" data-cat="potion">🧪 Potions <span class="count" id="count-potion"></span></button>
-    <button class="tab cat-biome" data-cat="biome">🌍 Biomes <span class="count" id="count-biome"></span></button>
-    <button class="tab cat-fav" data-cat="fav">★ Favoris <span class="count" id="count-fav"></span></button>
-    <button class="tab cat-jeu" data-cat="jeu">🎮 Mini-Jeu</button>
-  </nav>
-
-  <main id="main">
-    <section id="browser">
-      <p class="shown-line"><span id="shown-count">0</span> fiche(s) affichée(s)</p>
-      <div id="subfilter-bar" class="subfilter-bar" role="group" aria-label="Filtres"></div>
-      <div id="cards-grid" class="grid"></div>
-      <div id="empty-state" class="empty hidden">
-        <p class="empty-face">😢</p>
-        <p>Aucune fiche trouvée…</p>
-        <button id="reset-filters" class="mc-btn">↺ Réinitialiser</button>
-      </div>
-    </section>
-
-    <section id="game-section" class="hidden">
-      <h2>🎮 DIAMOND DASH</h2>
-      <p class="section-desc">Saute par-dessus les creepers, attrape les diamants !<br>
-        <kbd>Espace</kbd> / <kbd>↑</kbd> / clic = sauter (double saut !) • <kbd>P</kbd> = pause</p>
-      <div class="game-wrap">
-        <canvas id="game-canvas" width="480" height="300"></canvas>
-        <div id="game-over" class="game-over hidden">
-          <p class="go-title">GAME OVER</p>
-          <p id="go-score"></p>
-          <button id="game-restart" class="mc-btn">↺ Rejouer</button>
-        </div>
-      </div>
-      <div class="game-hud">
-        <span id="hud-score">💎 0</span>
-        <span id="hud-lives">❤❤❤</span>
-        <span id="hud-best">🏆 Record : 0</span>
-        <button id="game-mute" class="chip" title="Activer/couper les sons">🔊</button>
-      </div>
-      <button id="game-start" class="mc-btn">▶ Jouer</button>
-      <button id="game-jump-mobile" class="mc-btn game-jump-mobile">⬆ SAUTER</button>
-    </section>
-  </main>
-
-  <footer>
-    <p>Fan-made • Non affilié à Mojang/Microsoft • Fait avec 💚 et des cubes</p>
-  </footer>
-
-  <div id="modal-overlay" class="hidden">
-    <div id="modal" role="dialog" aria-modal="true">
-      <button id="modal-close" aria-label="Fermer">✕</button>
-      <div id="modal-body"></div>
-    </div>
+<header class="topbar">
+  <button class="burger" id="burger" aria-label="Ouvrir le menu" aria-expanded="false">☰</button>
+  <a class="logo" href="#" data-page="accueil">
+    <span class="logo-cube" aria-hidden="true"></span>
+    <span class="logo-text">MC<em>DICT</em><small>ULTRA&nbsp;v2</small></span>
+  </a>
+  <div class="gsearch" role="search">
+    <span class="gs-icon" aria-hidden="true">🔍</span>
+    <input id="global-search" type="search" placeholder="Chercher un mob, une arme, une recette, une commande…" autocomplete="off" aria-label="Recherche globale">
+    <div class="gs-drop" id="gs-drop" hidden></div>
   </div>
+</header>
 
-  <button id="jarvis-btn" aria-label="Ouvrir Jarvis, assistant Minecraft">🤖</button>
-  <div id="jarvis-panel" class="hidden" role="dialog" aria-label="Jarvis, assistant Minecraft">
-    <div class="jarvis-head">
-      <span class="jarvis-avatar">🤖</span>
-      <div><b>Jarvis</b><span class="jarvis-status">en ligne • expert Minecraft</span></div>
-      <button id="jarvis-close" aria-label="Fermer Jarvis">✕</button>
+<nav class="tabs" id="tabs" aria-label="Catégories">
+  <button class="tab active" data-page="accueil">🏠 Accueil</button>
+  <button class="tab" data-page="mobs">👾 Mobs</button>
+  <button class="tab" data-page="armes">⚔️ Armes &amp; Armures</button>
+  <button class="tab" data-page="potions">🧪 Potions</button>
+  <button class="tab" data-page="blocs">🧱 Blocs</button>
+  <button class="tab" data-page="biomes">🌍 Biomes</button>
+  <button class="tab" data-page="craft">🛠️ Craft &amp; Commandes</button>
+  <button class="tab" data-page="favoris">⭐ Favoris <span id="fav-count" class="fav-pill">0</span></button>
+</nav>
+
+<main id="main">
+
+  <!-- ACCUEIL -->
+  <section class="page active" id="page-accueil">
+    <div class="hero">
+      <div class="cube-stage" aria-hidden="true"><div class="mcube" id="hero-cube"></div></div>
+      <h1 class="hero-title">MINECRAFT<br><span class="rainbow">DICTIONNARY</span></h1>
+      <p class="hero-sub">Édition ULTRA v2 · tout le jeu recensé : mobs, armes, potions, blocs, biomes, craft interactif et simulateur de commandes Java &amp; Bedrock.</p>
+      <div class="hero-btns">
+        <button class="btn btn-green" data-page="mobs">👾 Voir les mobs</button>
+        <button class="btn btn-diamond" data-page="craft">🛠️ Table de craft</button>
+        <button class="btn btn-redstone" data-page="craft" data-jump="commandes">💻 Bloc de commandes</button>
+      </div>
+      <div class="hero-stats" id="hero-stats"></div>
     </div>
-    <div id="jarvis-log"></div>
-    <div class="jarvis-suggests">
-      <button class="jarvis-chip" data-q="Comment apprivoiser un loup ?">🐺 Apprivoiser un loup</button>
-      <button class="jarvis-chip" data-q="Quel est le mob le plus dangereux ?">☠️ Mob le plus dangereux</button>
-      <button class="jarvis-chip" data-q="Comment vaincre le Warden ?">👁️ Vaincre le Warden</button>
-      <button class="jarvis-chip" data-q="Où trouver des diamants ?">💎 Trouver des diamants</button>
+    <div class="features" id="features"></div>
+    <div class="easter">
+      <p>💡 Astuce : essaie d'écrire "red" dans la recherche, tout le monde redstone apparaît !</p>
+      <button class="creeper-btn" id="creeper-btn" title="Ne clique pas…" aria-label="Creeper surprise"> Creeper ?</button>
     </div>
-    <form id="jarvis-form">
-      <input id="jarvis-input" type="text" placeholder="Pose ta question sur Minecraft…" autocomplete="off" aria-label="Question pour Jarvis">
-      <button class="mc-btn" type="submit">Envoyer</button>
-    </form>
+  </section>
+
+  <section class="page" id="page-mobs" data-cat="mobs"></section>
+  <section class="page" id="page-armes" data-cat="armes"></section>
+  <section class="page" id="page-potions" data-cat="potions"></section>
+  <section class="page" id="page-blocs" data-cat="blocs"></section>
+  <section class="page" id="page-biomes" data-cat="biomes"></section>
+  <section class="page" id="page-craft"></section>
+  <section class="page" id="page-favoris"></section>
+</main>
+
+<footer class="footer">
+  <p>🟩 <strong>Minecraft Dictionnary ULTRA v2</strong> · 100% gratuit, sans pub, fait avec ❤️ et des cubes.</p>
+  <p class="foot-small">Minecraft est une marque de Mojang / Microsoft. Site de fans non affilié.</p>
+</footer>
+
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-box">
+    <button class="modal-x" id="modal-x" aria-label="Fermer">✕</button>
+    <div id="modal-content"></div>
   </div>
+</div>
 
-  <div id="toast" class="hidden"></div>
-
-  <script src="script.js"></script>
+<script src="data1.js"></script>
+<script src="data2.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

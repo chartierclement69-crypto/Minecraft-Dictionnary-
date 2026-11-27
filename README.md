@@ -1,42 +1,34 @@
-# 🟩 Minecraft Dictionnary — Édition Ultime
+# 🟩 Minecraft Dictionnary — Édition ULTRA v2
 
-[![Déploiement GitHub Pages](https://github.com/chartierclement69-crypto/Minecraft-Dictionnary-/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/chartierclement69-crypto/Minecraft-Dictionnary-/actions/workflows/deploy-pages.yml)
+> 🎮 Le dictionnaire Minecraft le plus complet du web : **plus de 300 fiches**, recherche universelle, table de craft interactive 3×3 et **simulateur de bloc de commandes Java & Bedrock**. 100% gratuit, sans publicité.
 
-> 🎮 Le dictionnaire Minecraft le plus moderne et complet : **157 fiches** détaillées, recherche intelligente, cubes 3D animés, mini-jeu et **Jarvis**, l'assistant IA 100 % Minecraft. 100 % gratuit, sans publicité.
+**🌍 Site en ligne : chartierclement69-crypto.github.io/Minecraft-Dictionnary-**
 
-**🌍 Site en ligne : [chartierclement69-crypto.github.io/Minecraft-Dictionnary-](https://chartierclement69-crypto.github.io/Minecraft-Dictionnary-/)**
+## ✨ Fonctionnalités v2
 
-## ✨ Fonctionnalités
-
-- 📚 **157 fiches** réparties en 5 catégories :
-  - 👾 **76 mobs** (hostiles, passifs, boss) avec stats de danger/vitesse
-  - ⚔️ **30 armes** — 5 outils × 6 matériaux (bois → netherite) avec dégâts et durabilité
-  - 🧱 **22 blocs** (naturels, précieux, fabriqués) avec textures pixel générées
-  - 🧪 **14 potions** (positives, négatives, spéciales)
-  - 🌍 **15 biomes** (Overworld, Nether, End)
-- 🔍 **Recherche intelligente** : floue, sans accents, avec suggestions instantanées
-- ⭐ **Favoris** : onglet dédié, sauvegarde locale
-- 🧊 **Cube 3D animé** pour chaque fiche (CSS 3D, texture voxel)
-- 🤖 **Jarvis** : assistant intégré qui répond aux questions sur Minecraft à partir des fiches du site — et refuse poliment tout le reste
-- 🎮 **Diamond Dash** : mini-jeu de course avec double saut, creepers, phantoms volants, sons pixel-art (WebAudio), record sauvegardé, contrôles tactiles mobiles
-- 🔗 **Fiches partageables** : `?fiche=creeper` ouvre directement la fiche
-- 📱 Responsive, accessible (navigation clavier, skip-link, ARIA)
+* 👾 **86 mobs** recensés (hostiles, passifs, boss) avec PV, dégâts, habitat, butin et astuces
+* ⚔️ **50 armes & armures** : 5 outils × 6 matériaux, 6 sets d'armure × 4 pièces, arc, arbalète, trident, massue (1.21)…
+* 🧪 **16 potions** avec effets, durées et ingrédients de brassage
+* 🧱 **45 blocs** avec dureté, bon outil et localisation
+* 🌍 **28 biomes** (Overworld, Nether, End, Deep Dark)
+* 🛠️ **Table de craft interactive** : plus de 110 recettes affichées en grille 3×3, recherche instantanée (essaie « red » !), filtres par catégorie
+* 💻 **Bloc de commandes simulé** : tape tes commandes et vois le résultat, avec bascule **Java ☕ / Bedrock 📱**, 45 commandes documentées et leurs différences de syntaxe
+* 🔍 **Recherche universelle** : floue, sans accents, tout le catalogue en une barre
+* ⭐ **Favoris** sauvegardés localement
+* 🔗 **Fiches partageables** : `?fiche=creeper`
+* 🎨 Graphisme pixel abusé : cube 3D animé, particules flottantes, glow, easter egg creeper 💥
+* 📱 Responsive, accessible (clavier, ARIA, skip-link)
 
 ## 📂 Structure
 
-```
-index.html    → page unique
-style.css     → thème pixel premium
-script.js     → moteur pixel-art, base de données, UI, jeu, Jarvis
-og-image.png  → image de partage social
-robots.txt / sitemap.xml → référencement
-.github/workflows/deploy-pages.yml → déploiement automatique
-```
+* `index.html` : structure du site
+* `style.css` : thème pixel-art, animations
+* `data1.js` : mobs, armes, potions, blocs, biomes
+* `data2.js` : recettes de craft et commandes
+* `script.js` : moteur (rendu, recherche, craft 3×3, simulateur de commandes)
 
 ## 🚀 Déploiement
 
-Tout push sur `main` déclenche le workflow GitHub Actions : le site est construit et publié automatiquement sur GitHub Pages en ~1 minute.
+GitHub Pages actif sur la branche principale : chaque push est en ligne en quelques secondes, 24/7, non-stop.
 
-## ⚠️ Avertissement
-
-Projet fan-made, non affilié à Mojang/Microsoft. Minecraft est une marque de Mojang Synergies AB.
+Minecraft est une marque de Mojang / Microsoft. Site de fans non affilié.
