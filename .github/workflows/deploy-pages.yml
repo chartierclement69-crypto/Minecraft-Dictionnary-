@@ -28,7 +28,7 @@ jobs:
         with:
           enablement: true
       - name: Préparation des fichiers du site
-        run: mkdir -p _site && cp index.html style.css script.js data1.js data2.js extra.js og-image.png robots.txt sitemap.xml _site/
+        run: mkdir -p _site && cp index.html style.css script.js data1.js data2.js extra.js manifest.json sw.js og-image.png robots.txt sitemap.xml _site/
       - name: Upload de l'artifact
         uses: actions/upload-pages-artifact@v3
         with:
